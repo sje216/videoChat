@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+    /* 전체 레이아웃 */
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+    /* 전체 레이아웃 */
+    #container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden; /* 밖으로 나가는 것 차단 */
+    }
+    /* 왼쪽 미디어 섹션 기준점 */
+    #mediaSection {
+        flex: 7.5;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        background: #121212;
+        position: relative;
+    }
+    /* ⭐ 핵심: 화면 공유가 크게 뜨기 위한 설정 */
+    #mainScreen { 
+        display: none;
+        width: 100%;
+        max-height: 55vh;
+        background: #000;
+        margin-bottom: 10px;
+        border-radius: 10px;
+    }
+    #mainScreen video { width: 100%; height: 100%; object-fit: contain; }
+
+    #remoteVideos { 
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 유동적 그리드 */
+        gap: 10px;
+        padding: 10px;
+        width: 100%;
+        height: auto;
+        overflow-y: auto; /* 인원이 많아지면 스크롤 생성 */
+    }
+
+    #remoteVideos video { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    .remote-video-box {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9; /* 16:9 비율 유지 */
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .remote-video-box video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* 하단 내 영상 & 버튼 바 */
+    #localControls {
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start; /* 왼쪽 정렬 */
+        gap: 15px;
+        background: #1a1a1a;
+        padding: 0 20px;
+        border-top: 2px solid #333;
+    }
+
+    .button-group-main button, #sendBtn {
+        padding: 10px 20px;
+        border-radius: 30px; /* 둥근 버튼 */
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s;
+        background: #444;
+        color: white;
+    }
+
+    /* 활성화/비활성화 색상 구분 */
+    #muteBtn.active { background: #e06c75; } /* 음소거 시 빨간색 */
+    #cameraBtn.active { background: #e06c75; } /* 카메라 끌 때 빨간색 */
+
+    /* 2. 오른쪽 사이드바 버튼 (공유, 나가기) */
+    .side-button-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    #shareScreen { background: #61afef; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    #leaveBtn { background: #e06c75; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+    /* 3. 귓속말(Participants) 강조 색상 변경 */
+    .selected-user {
+        background: #c678dd !important; /* 보라색 계열로 변경 */
+        color: white !important;
+        border: 1px solid #ffffff !important;
+        box-shadow: 0 0 10px rgba(198, 120, 221, 0.5);
+    }
+
+    /* 4. 채팅창 메시지 스타일 */
+    .chat-msg { margin-bottom: 5px; font-size: 14px; line-height: 1.4; }
+    .msg-me { color: #98c379; font-weight: bold; } /* 내 메시지: 초록색 계열 */
+    .msg-other { color: #abb2bf; }
+
+    
+    .local-video-box { width: 150px; height: 100px; border-radius: 8px; overflow: hidden; border: 2px solid #007bff; }
+    .local-video-box video { width: 100%; height: 100%; object-fit: cover; }
+
+    /* 오른쪽 사이드바 */
+    #controlSection {
+        flex: 2.5;
+        min-width: 300px;
+        background: #1e1e1e;
+        border-left: 1px solid #333;
+        display: flex;
+        flex-direction: column;
+        padding: 15px;
+        box-sizing: border-box;
+    }
+
+    /* 유저 리스트 고정 높이 */
+    #userList { 
+        height: 200px; /* 고정 높이 */
+        overflow-y: auto; 
+        background: #252525; 
+        border-radius: 10px; 
+        padding: 10px;
+        margin-bottom: 10px; 
+        border: 1px solid #444;
+    }
+    .user-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #333;
+        border-radius: 6px;
+        color: #ddd;
+        font-size: 14px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+
+    .user-item:hover {
+        background: #444;
+    }
+
+    /* 채팅창 고정 높이 */
+    #chatBox { 
+        flex: 1; /* 남은 공간 다 차지하되 하단 입력창은 밀어냄 */
+        overflow-y: auto; 
+        background: #2a2a2a; 
+        border-radius: 10px; 
+        padding: 12px; 
+        margin-bottom: 10px;
+        border: 1px solid #444;
+    }
+
+    /* 입장 전 초기 화면 */
+    #entrance { 
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+        text-align: center; background: #1e1e1e; padding: 40px; border-radius: 15px; border: 1px solid #333;
+    }
+    #entrance input { padding: 10px; border-radius: 5px; border: none; width: 200px; }
+    #entrance button { padding: 10px 20px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
+    /* 내 영상: 왼쪽 하단에 작게 고정 */
+    .local-wrap {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        width: 200px;
+        height: 150px;
+        border: 2px solid #61afef;
+        border-radius: 12px;
+        overflow: hidden;
+        z-index: 100;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    }
+</style>
+
+<body>
+    <div id="entrance">
+        <h2>JOOM Video Conference</h2>
+        <input placeholder="Enter Room ID" id="roomInput">
+        <button id="joinBtn">Join Room</button>
+    </div>
+
+    <div id="container" style="display: none;">
+        <div id="mediaSection">
+            <div id="mainScreen"></div>
+            <div id="remoteVideos"></div>
+
+            <div id="localControls">
+                <div class="local-video-box">
+                    <video id="localVideo" autoplay playsinline muted></video>
+                </div>
+                <div class="button-group-main">
+                    <button id="muteBtn">Mute</button>
+                    <button id="cameraBtn">Camera</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="controlSection">
+            <div class="side-button-group">
+                <button id="leaveBtn">Leave Room</button>
+                <button id="shareScreen">Share Screen</button>
+            </div>
+
+            <h4>Participants</h4>
+            <div id="userList"></div>
+            <button id="whisperBtn" style="width:100%; padding:8px; background:#56b6c2; border:none; border-radius:5px; color:white; cursor:pointer;">Whisper to Selected</button>
+
+            <h4>Chat</h4>
+            <div id="chatBox"></div>
+            <div class="chat-input-group">
+                <input type="text" id="chatInput" placeholder="Message...">
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
