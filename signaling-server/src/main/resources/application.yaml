@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: joom
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
