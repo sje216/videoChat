@@ -1,0 +1,21 @@
+# 디폴트 무시된 파일
+/shelf/
+/.idea/workspace.xml
+# 에디터 기반 HTTP 클라이언트 요청
+/httpRequests/
+
+#Node.js 의존성 무시
+node_modules/
+dist/
+.env
+
+#java/spring 의존성 및 빌드 파일 무시
+target/
+build/
+gradle/
+*.class
+
+#IDE 설정 파일 무시
+.idea/
+vscode/
+*.iml
