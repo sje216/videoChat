@@ -2,8 +2,18 @@ import Redis from "ioredis";
 import express, { json } from "express";
 import { WebSocketServer } from "ws";
 import {initMediasoup, getRouter} from "./mediasoup.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// 현재 경로 찾기
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use(express.static(path.join(__dirname, "../joom-client")));
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "../joom-client", "index.html"));
+});
 const server = app.listen(3000, () => 
     console.log("SFU server listening on 3000")
 );

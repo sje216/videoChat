@@ -1,5 +1,4 @@
 import * as mediasoupClient from "mediasoup-client";
-console.log("mediasoup client loaded");
 
 let springSocket  = null; // 채팅, 입장/퇴장, 유저리스트
 let sfuSocket     = null; // 오직 mediasoup
