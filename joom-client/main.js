@@ -9,6 +9,7 @@ let selectedUser = null;
 let pendingProduceCallback = null; // 서버 응답 대기용
 let currentUserId = null;
 let roomId = null;
+let userId = sessionStorage.getItem("myId");
 
 const consumers = new Map();
 const consumingProducers = new Set();
@@ -18,7 +19,7 @@ const remoteVideos = document.getElementById("remoteVideos");
 const shareBtn = document.getElementById("shareScreen");
 const joinBtn = document.getElementById("joinBtn");
 const roomInput = document.getElementById("roomInput");
-const videoArea = document.getElementById("videoArea");
+const userListDiv = document.getElementById("userList");
 
 async function startAndjoin() {
   // UI 전환
@@ -27,11 +28,17 @@ async function startAndjoin() {
   document.getElementById("controlSection").style.display = "flex";
   
   transportCount =0;
+  // 기존 데이터 싹 비우기
   users = [];
+  if(userListDiv) userListDiv.innerHTML = "";
+  if(remoteVideos) remoteVideos.innerHTML = "";
   renderUsers();
   roomId = roomInput.value;
   if(!roomId) return alert("방 이름을 입력해주세요.");
-  const userId = "user_" + Math.floor(Math.random() * 1000);
+  if(!userId){
+    userId = "user_" + Math.floor(Math.random() * 1000);
+    sessionStorage.setItem("myId", userId);
+  }
   currentUserId = userId;
 
   try{
@@ -47,7 +54,6 @@ async function startAndjoin() {
     // 미디어 소켓
     initSfuSocket(sfuUrl, roomId, userId, ticket);
 
-    //videoArea.style.display = "block";
   }catch(err){
     console.error("입장실패 : ",err);
   }
@@ -92,7 +98,7 @@ function initSpringSocket(roomId, userId){
         addChatMessage(`[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
         break;
       case "LEAVE":
-        users = users.filter(id => id !== msg.from);
+        users = msg.currentUsers || [];
         renderUsers();
         removePeer(msg.from);
         addChatMessage(`${msg.from}님이 퇴장했습니다.`,"system");
@@ -320,7 +326,7 @@ async function handleConsume(data) {
   video.playsInline = true;
 
   video.id = "video-" + data.producerId;
-  videoBox.className = "remote-video-box";
+  video.className = "remote-video-box";
   video.setAttribute("data-peer-id", data.peerId);
   //  화면 공유시 스타일 차별화
   if(data.appData && data.appData.type ==="screen"){
@@ -407,7 +413,6 @@ async function sendChat(){
   if(!input.value) return;
 
   const roomId = roomInput.value;
-  const userId = currentUserId;
 
   try{
     
@@ -491,7 +496,6 @@ async function sendWhisper() {
 }
 
 function renderUsers() {
-  const userListDiv = document.getElementById("userList");
   userListDiv.innerHTML = "";
 
   if (!users || !Array.isArray(users)) {
@@ -499,10 +503,12 @@ function renderUsers() {
     return;
   }
 
-  users.forEach(id => {
+  const uniqueUsers = [...new Set(users)];
+  uniqueUsers.forEach(id => {
     const div = document.createElement("div");
     // 내 아이디면 별도 표시
     const isMe = (id === currentUserId);
+    div.className = "user-item";
     div.innerText = isMe ? `👤 ${id} (나)` : `👤 ${id}`;
     // CSS 클래스 추가 (선택된 경우 강조)
     div.style.padding = "8px";
@@ -511,7 +517,6 @@ function renderUsers() {
     div.style.cursor = isMe ? "default" : "pointer";
     div.style.backgroundColor = "#333";
     
-    //if(selectedUser == id) div.classList.add("selected-user");
     if (selectedUser === id) {
       div.style.backgroundColor = "#c678dd"; // 귓속말 강조 색상 (보라)
       div.style.color = "white";
@@ -530,7 +535,6 @@ function renderUsers() {
 }
 
 function leaveRoom() {
-  const userId = currentUserId;
   springSocket.send(JSON.stringify({
     type:"LEAVE",
     roomId: roomId,

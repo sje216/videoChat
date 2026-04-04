@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.joom.DTO.SignalMessage;
 import com.project.joom.Repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RoomService {
 
     private final RoomRepository roomRepository;
@@ -21,6 +23,10 @@ public class RoomService {
 
     // 방입장 처리
     public void join(String roomId, String userId, String sessionId){
+        if(roomRepository.isUserInRoom(roomId, userId)){
+            log.warn("중복 유저 감지: {}. 기존 정보를 업데이트하거나 먼저 지웁니다.", userId);
+            forceLeave(roomId, userId);
+        }
         roomRepository.addUser(roomId, userId, sessionId);
 
         List<String> currentUsers = roomRepository.getRoomUsers(roomId).keySet()
@@ -44,20 +50,29 @@ public class RoomService {
     }
 
     public void leave(String roomId, String userId, String sessionId){
-        roomRepository.removeUser(roomId, sessionId);
+        if(roomId == null || userId == null) return;
+        try{
+            log.info("[LEAVE 시작] 방: {}, 유저: {}", roomId, userId);
+            roomRepository.removeUser(roomId, sessionId);
 
-        List<String> currentUsers = roomRepository.getRoomUsers(roomId).keySet()
-                .stream().map(Object::toString).toList();
+            // 유저 리스트 안전하게 가져오기
+            Map<Object, Object> users = roomRepository.getRoomUsers(roomId);
+            List<String> currentUsers = (users!=null)?
+                    users.keySet().stream().map(Object::toString).toList() : List.of();
+            log.info("[LEAVE 완료] 현재 방({}) 남은 인원: {}명", roomId, currentUsers.size());
 
-        SignalMessage msg = SignalMessage.builder()
-                .type("LEAVE")
-                .roomId(roomId)
-                .from(userId)
-                .payload(Map.of("message", userId + "님이 퇴장하셨습니다."))
-                .currentUsers(currentUsers)
-                .build();
+            SignalMessage msg = SignalMessage.builder()
+                    .type("LEAVE")
+                    .roomId(roomId)
+                    .from(userId)
+                    .payload(Map.of("message", userId + "님이 퇴장하셨습니다."))
+                    .currentUsers(currentUsers)
+                    .build();
 
-        publishMsg(roomId, msg);
+            publishMsg(roomId, msg);
+        }catch (Exception e){
+            log.error("퇴장 처리 중 예외 발생: {}", e.getMessage());
+        }
     }
 
     private void publishMsg(String roomId, SignalMessage msg) {
@@ -68,6 +83,14 @@ public class RoomService {
         }catch (JsonProcessingException e){
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 세션 ID 없이 userId만으로 강제 퇴장 처리 (중복 방어용)
+     */
+    private void forceLeave(String roomId, String userId) {
+        String key = "room:" + roomId + ":users";
+        roomRepository.removeUser(roomId, userId);
     }
 
 

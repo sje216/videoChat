@@ -29,13 +29,17 @@ public class RedisRoomRepository implements RoomRepository {
 
     @Override
     public Map<Object, Object> getRoomUsers(String roomId) {
-        Map<Object, Object> map = redisTemplate.opsForHash().entries(getRoomKey(roomId));
         return redisTemplate.opsForHash().entries(getRoomKey(roomId));
     }
 
     @Override
     public String getSessionId(String roomId, String userId) {
         return (String) redisTemplate.opsForHash().get(getRoomKey(roomId), userId);
+    }
+
+    @Override
+    public boolean isUserInRoom(String roomId, String userId) {
+        return redisTemplate.opsForHash().hasKey(getRoomKey(roomId), userId);
     }
 
 }
