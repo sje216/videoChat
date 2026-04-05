@@ -236,13 +236,13 @@ async function createTransport(data) {
           track: videoTrack,
           appData: {type: "video"},
           encodings: [
-            { maxBitrate: 100000, scaleResolutionDownBy: 4 }, // 저화질
-            { maxBitrate: 300000, scaleResolutionDownBy: 2 }, // 중간화질
-            { maxBitrate: 900000, scaleResolutionDownBy: 1 }  // 고화질
+            { rid: 'r0', maxBitrate: 100000, scaleResolutionDownBy: 4 }, // 저화질 (1/4 해상도)
+            { rid: 'r1', maxBitrate: 300000, scaleResolutionDownBy: 2 }, // 중화질 (1/2 해상도)
+            { rid: 'r2', maxBitrate: 900000, scaleResolutionDownBy: 1 }, // 고화질 (원본 해상도)
           ],
           codecOptions: { videoGoogleStartBitrate: 1000 }
                 });
-        console.log("비디오 송출 시작");
+        console.log("✅ Simulcast Producer 생성 완료!");
       }
 
       if(audioTrack){

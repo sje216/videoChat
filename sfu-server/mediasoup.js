@@ -26,7 +26,23 @@ export async function initMediasoup(){
             {
                 kind: "video",
                 mimeType: "video/VP8",
-                clockRate: 90000
+                clockRate: 90000,
+                // 아래 파라미터들이 추가되어야 Simulcast가 안정적으로 동작합니다.
+                parameters: {
+                    "x-google-start-bitrate": 1000
+                }
+            },
+            {
+                kind: "video",
+                mimeType: "video/H264",
+                clockRate: 90000,
+                // 아래 파라미터들이 추가되어야 Simulcast가 안정적으로 동작합니다.
+                parameters: {
+                    "packetization-mode": 1,
+                    "profile-level-id": "42e01f",
+                    "level-asymmetry-allowed": 1,
+                    "x-google-start-bitrate": 1000
+                }
             }
         ]
     });
