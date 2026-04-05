@@ -53,7 +53,7 @@ public class RoomService {
         if(roomId == null || userId == null) return;
         try{
             log.info("[LEAVE 시작] 방: {}, 유저: {}", roomId, userId);
-            roomRepository.removeUser(roomId, sessionId);
+            roomRepository.removeUser(roomId, userId);
 
             // 유저 리스트 안전하게 가져오기
             Map<Object, Object> users = roomRepository.getRoomUsers(roomId);
