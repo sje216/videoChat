@@ -308,16 +308,17 @@ async function consumeProducer(producerId) {
 }
 
 async function handleConsume(data) {
+  // recvTransport 를 통해 로컬 consumer 생성
   const consumer = await recvTransport.consume({
     id: data.id,
     producerId: data.producerId,
     kind: data.kind,
-    rtpParameters: data.rtpParameters
+    rtpParameters: data.rtpParameters // 서버가 보내준 simulcast도 포함
   });
-  consumers.set(data.producerId, consumer);
+  consumers.set(data.id, consumer); // producerId -> consumerId로 변경
 
-  const stream = new MediaStream();
-  stream.addTrack(consumer.track);
+  // 미디어 스트림 생성 및 트랙 연결
+  const stream = new MediaStream([consumer.track]);
 
   console.log("creting video for producer : ",data.producerId);
   const video       = document.createElement("video");
@@ -325,16 +326,24 @@ async function handleConsume(data) {
   video.autoplay    = true;
   video.playsInline = true;
 
+  // 비디오 재생 보장 (일부 브라우저 정책 대응)
+  video.onloadedmetadata = () => {
+    video.play().catch(e => console.error("video play 실패 : ", e));
+  };
+
   video.id = "video-" + data.producerId;
   video.className = "remote-video-box";
   video.setAttribute("data-peer-id", data.peerId);
+  
   //  화면 공유시 스타일 차별화
   if(data.appData && data.appData.type ==="screen"){
-    const mainScreen = document.getElementById("mainScreen");
-    mainScreen.style.display = "block";
-    mainScreen.innerHTML = ""; // 제목 하나 넣어줌
-    mainScreen.appendChild(video);
-    console.log("📺 화면 공유를 메인 섹션에 띄웁니다.");
+    if(mainScreen){
+      const mainScreen = document.getElementById("mainScreen");
+      mainScreen.style.display = "block";
+      mainScreen.innerHTML = ""; // 제목 하나 넣어줌
+      mainScreen.appendChild(video);
+      console.log("📺 화면 공유를 메인 섹션에 띄웁니다.");
+    }
   }else{
     remoteVideos.appendChild(video);
   }

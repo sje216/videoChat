@@ -257,8 +257,16 @@ async function handleMsg(ws, msg) {
                 const consumer = await transport.consume({
                     producerId: producer.id,
                     rtpCapabilities: data.rtpCapabilities,
-                    paused: false
+                    paused: true // 레이어 설정을 위해 잠시 멈춤 상태로 생성
                 });
+
+                // simulcast 대응 초기화질 레이어 설정 (spatialLayer:2(r2 고화질))
+                if(consumer.type === 'simulcast'){
+                    await consumer.setPreferredLayers({ spatialLayer:2, temporalLayer:2});
+                }
+
+                // 설정 완료 후 다시 시작
+                await consumer.resume();
 
                 peer.consumers.set(consumer.id, consumer);
 
@@ -275,6 +283,21 @@ async function handleMsg(ws, msg) {
                         peerId: producerOwner
                     }
                 }));
+                break;
+            }
+
+            case "resumeConsumer": {
+                const room = rooms.get(ws.roomId);
+                const peer = room.peers.get(ws.id);
+                const {consumerId} = data.data.consumerId; // 클라이언트가 보낸 아이디
+
+                // 내가 가지고 있는 consumer 중 해당 아이디 찾기
+                const consumer = peer.consumers.get(consumerId);
+
+                if(consumer) {
+                    console.log(`Resuming consumer : ${consumerId}`);
+                    await consumer.resume();
+                }
                 break;
             }
 
