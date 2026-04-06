@@ -18,4 +18,12 @@ public class SignalMessage {
     private String target; // reciever
     private List<String> currentUsers; // 유저리스트
     private Object payload; // real data(message)
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class StatusPayload {
+        private String type; //audio or video
+        private boolean enabled; // true(on) or false(off)
+    }
 }

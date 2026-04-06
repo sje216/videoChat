@@ -37,6 +37,10 @@ public class SignalingHandler extends TextWebSocketHandler {
                 roomService.join(msg.getRoomId(), msg.getFrom(), sessionId);
                 break;
 
+            case "STATUS":
+                roomService.handleStatus(msg);
+                break;
+
             case "CHAT":
             case "WHISPER":
                 roomService.relay(msg);

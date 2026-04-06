@@ -86,6 +86,7 @@ function initSpringSocket(roomId, userId){
         renderUsers();
         addChatMessage(`${msg.from}님이 입장했습니다.`,"system");
         break;
+
       case "CHAT":
         // 만약 msg.from이 안 나온다면 msg.userId 등 전달받은 필드명을 확인하세요.
         const sender = msg.from || "익명";
@@ -93,10 +94,33 @@ function initSpringSocket(roomId, userId){
         console.log(sender, text);
         addChatMessage(`${sender} : ${text}`);
         break;
+
       case "WHISPER":
         const whisperText = msg.payload? msg.payload.message : "메시지 내용 없음";
         addChatMessage(`[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
         break;
+        
+      case "STATUS":
+        const { from, payload } = data; // data는 Spring에서 받은 JSON
+        const { type, enabled } = payload;
+
+        // 1. 해당 유저의 비디오 박스 요소를 찾음
+        const remoteVideoContainer = document.querySelector(`[data-peer-id="${from}"]`);
+        
+        if (remoteVideoContainer) {
+            if (type === "audio") {
+                // 마이크 아이콘 업데이트
+                const micIcon = remoteVideoContainer.querySelector(".mic-status-icon");
+                micIcon.innerText = enabled ? "🎙️" : "🔇";
+                micIcon.classList.toggle("muted", !enabled);
+            } else if (type === "video") {
+                // 카메라 아이콘 또는 비디오 오버레이 업데이트
+                const videoOffOverlay = remoteVideoContainer.querySelector(".video-off-overlay");
+                videoOffOverlay.style.display = enabled ? "none" : "flex";
+            }
+        }
+        break;
+        
       case "LEAVE":
         users = msg.currentUsers || [];
         renderUsers();
@@ -555,18 +579,6 @@ function leaveRoom() {
   location.href = "/lobby";
 }
 
-// 소켓이 열려있을때만 나간다는 신호 
-// window.addEventListener('beforeunload', () => {
-//   if(springSocket && springSocket.readyState === WebSocket.OPEN){
-//     springSocket.send(JSON.stringify({
-//       type: "LEAVE",
-//       roomId: roomId,
-//       from: currentUserId
-//     }));
-//     console.log("leave send : ",roomId,currentUserId);
-//   }
-// });
-
 joinBtn.onclick = startAndjoin;
 document.getElementById("sendBtn").onclick = () => {
   sendChat();
@@ -580,47 +592,50 @@ document.getElementById("leaveBtn").onclick = () =>{
   leaveRoom();
 }
 
-let isMuted = false;
-let isCameraOff = false;
-
 document.getElementById("muteBtn").onclick = () => {
-  if(!audioProducer) return;
+  const audioTrack = localSteam.getAudioTracks()[0];
+  if(!audioTrack) return;
 
-  if(!isMuted){
-    audioProducer.pause();
-    isMuted = true;
-    console.log("muted");
-    document.getElementById("muteBtn").innerText = "unmute";
-  }else{
-    audioProducer.resume();
-    isMuted = false;
-    console.log("unmuted");
-    document.getElementById("muteBtn").innerText = "mute";
-  }
-  
-  sfuSocket.send(JSON.stringify({
-    type: "mute",
-    muted: isMuted
+  // track 상태 반전
+  audioTrack.enabled = !audioTrack.enabled;
+  const isMuted = !audioTrack.enabled;
+
+  // UI update
+  document.getElementById("muteBtn").innerText = isMuted ? "unmute" : "mute";
+  console.log(isMuted ? "🔇 마이크 끔" : "🎙️ 마이크 켬");
+
+  // spring server로 상태 전송
+  springSocket.send(JSON.stringify({
+    type: "STATUS",
+    roomId: roomId,
+    from: userId,
+    payload: {
+      type: "audio",
+      enabled: audioTrack.enabled // true면 켜짐, false면 꺼짐
+    }
   }));
 };
 
 document.getElementById("cameraBtn").onclick = () => {
-  if(!videoProducer) return;
+  const videoTrack = localSteam.getVideoTracks()[0];
+  if(!videoTrack) return;
   
-  if(!isCameraOff){
-    videoProducer.pause();
-    isCameraOff = true;
-    document.getElementById("cameraBtn").innerText = "camera on";
-    console.log("camera off");
-  }else{
-    videoProducer.resume();
-    isCameraOff = false;
-    document.getElementById("cameraBtn").innerText = "camera off";
-    console.log("camera on");
-  }
+  // track 상태 반전
+  videoTrack.enabled = !videoTrack.enabled;
+  const isOff = !videoTrack.enabled;
 
-  sfuSocket.send(JSON.stringify({
-    type: "camera",
-    off: isCameraOff
+  // UI update
+  document.getElementById("cameraBtn").innerText = isOff ? "camera on" : "camera off";
+  console.log(isOff ? "🚫 카메라 끔" : "📷 카메라 켬");
+
+  // 3. Spring 서버로 상태 전송
+  springSocket.send(JSON.stringify({
+    type: "STATUS",
+    roomId: roomId,
+    from: userId,
+    payload: {
+      type: "video",
+      enabled: videoTrack.enabled
+    }
   }));
 };

@@ -94,4 +94,17 @@ public class RoomService {
     }
 
 
+    public void handleStatus(SignalMessage msg) {
+        String roomId = msg.getRoomId();
+        String userId = msg.getFrom();
+
+        SignalMessage.StatusPayload payload = objectMapper.convertValue(msg.getPayload(), SignalMessage.StatusPayload.class);
+
+        // key : room:123:status, Field : userA_audio, Value : false
+        String redisKey = "room:" + roomId + ":status";
+        redisTemplate.opsForHash().put(redisKey, userId + "_" + payload.getType(), String.valueOf(payload.isEnabled()));
+        
+        // 다른 사용자에게 알림
+        publishMsg(roomId, msg);
+    }
 }
