@@ -366,6 +366,20 @@ async function handleConsume(data) {
   // 미디어 스트림 생성 및 트랙 연결
   const stream = new MediaStream([consumer.track]);
 
+  // 오디오 트랙 추가
+  if(data.kind === "audio"){
+    const audio = document.createElement("audio");
+    audio.srcObject = stream;
+    audio.autoplay = true;
+    console.log("🔊 오디오 트랙 수신: 소리만 재생합니다.");
+
+    //resume 요청 후 함수 종료
+    return sfuSocket.send(JSON.stringify({
+      type:"resumeConsumer",
+      data: { consumerId: consumer.id }
+    }));
+  }
+
   console.log("creting video for producer : ",data.producerId);
   const video       = document.createElement("video");
   video.srcObject   = stream;
@@ -383,25 +397,36 @@ async function handleConsume(data) {
   
   //  화면 공유시 스타일 차별화
   if(data.appData && data.appData.type ==="screen"){
+    const mainScreen = document.getElementById("mainScreen");
     if(mainScreen){
-      const mainScreen = document.getElementById("mainScreen");
-      mainScreen.style.display = "block";
+      mainScreen.style.setProperty('display', 'block', 'important'); // CSS의 !important를 뚫고 보여줌
       mainScreen.innerHTML = ""; // 제목 하나 넣어줌
       // 화면 공유용 컨테이너
       const videoBox = document.createElement("div");
-      videoBox.style.width = "100%";
-      videoBox.style.height = "100%";
+      videoBox.className = "main-video-wrapper";
+      // videoBox.style.width = "100%";
+      // videoBox.style.height = "100%";
       
       // 비디오에 직접 스타일을 주어 잘림 방지
       video.style.objectFit = "contain";
       videoBox.appendChild(video);
       mainScreen.appendChild(videoBox);
       console.log("📺 화면 공유를 메인 섹션에 띄웁니다.");
+
+      // 화면 공유가 생겼으므로 하단 그리드 레이아웃 재조정
+      updateVideoGridLayout();
     }
   }else{
+
+    // 중복 생성 방지: 이미 해당 유저의 박스가 있다면 제거 후 재생성
+    const existingBox = document.getElementById("container-" + data.producerId);
+    if (existingBox) existingBox.remove();
+
     // 비디오 감쌀 박스 생성
     const videoBox = document.createElement("div");
     videoBox.id = "container-" + data.producerId;
+    // handleConsume에서 박스 만들 때 로그
+    console.log("생성된 박스 ID:", "container-" + data.producerId);
     videoBox.className = "remote-video-box";
     videoBox.setAttribute("data-peer-id", data.peerId);
 
@@ -411,8 +436,17 @@ async function handleConsume(data) {
     // Spring 서버에서 보낸 peerId를 이름으로 표시 (닉네임 데이터가 있다면 그것을 사용)
     nameTag.innerText = data.peerId || "참가자";
 
-    // 조립: 박스 안에
-    remoteVideos.appendChild(video);
+    // 조립: 박스 안에 비디오와 이름표 넣기
+    video.style.objectFit = "cover";
+    videoBox.appendChild(video);
+    videoBox.appendChild(nameTag);
+    // 그리드에 박스 추가
+    remoteVideos.appendChild(videoBox);
+
+    // 레이아웃 갱신 호출
+    if(typeof updateVideoGridLayout === "function"){
+      updateVideoGridLayout();
+    }
   }
 
   // 서버에서 paused를 보냈다면 resume 필수
@@ -426,7 +460,13 @@ async function handleConsume(data) {
 // main.js - 유저 목록이 갱신될 때 실행되는 함수 예시
 function updateVideoGridLayout() {
     const videoGrid = document.getElementById("remoteVideos");
+    const mainScreen = document.getElementById("mainScreen");
     const userCount = users.length + 1; // 상대방 수 + 나
+
+    //  안전장치: 메인 스크린 안에 자식이 없으면 숨기기
+    if (mainScreen.children.length === 0) {
+        mainScreen.style.setProperty('display', 'none', 'important');
+    }
 
     // 인원수에 따라 클래스 부여
     if (userCount <= 2) {
@@ -478,6 +518,8 @@ function stopScreenShare() {
 
 function removeVideo(producerId){
   
+  // removeVideo 시작할 때 로그
+  console.log("지우려는 박스 ID:", "container-" + producerId);
   consumingProducers.delete(producerId);
   const consumer = consumers.get(producerId);
   if(consumer){
@@ -485,19 +527,43 @@ function removeVideo(producerId){
     consumers.delete(producerId);
   }
 
-  const video = document.getElementById("video-"+ producerId);
-  if(video && video.parentElement.id === "mainScreen"){
-    document.getElementById("mainScreen").style.display = "none";
+  // container 찾음
+  const videoContainer = document.getElementById("container-" + producerId);
+  if(videoContainer){
+    if(videoContainer.parentElement && videoContainer.parentElement.id === "mainScreen"){
+      const mainScreen = document.getElementById("mainScreen");
+      mainScreen.style.display = "none"; // 화면 공유 박스 숨기기
+      mainScreen.innerText = ""; // 내부 잔여물 삭제
+      console.log("📺 화면 공유 종료: 메인 섹션을 숨깁니다.");
+    }
+    videoContainer.remove(); // 박스 자체를 삭제
   }
-  if(video) video.remove();
+  // 영상이 사라졌으니 하단 그리드 레이아웃 재정렬
+  if (typeof updateVideoGridLayout === "function") {
+    updateVideoGridLayout();
+  }
 } 
 
 function removePeer(peerId){
-  const videos = document.querySelectorAll(`video[data-peer-id="${peerId}"]`);
+  console.log(`유저 퇴장 처리 (peerId : ${peerId} )`);
+
+  const containers = document.querySelectorAll(`[data-peer-id="${peerId}"]`);
   
-  videos.forEach(v => {
-    v.srcObject = null;
-    v.remove();
+  containers.forEach(c => {
+    if(c.parentElement && c.parentElement.id === "mainScreen"){
+      const mainScreen = document.getElementById("mainScreen");
+      mainScreen.style.display = "none";
+      mainScreen.innerHTML = "";
+      console.log("화면 메인 섹션 숨김 완료");
+    }
+    // 비디오 스트림 연결 해제
+    const video = c.querySelector("video");
+    if(video){
+      video.srcObject = null;
+    }
+    // 박스 전체 삭제
+    c.remove();
+    console.log(`✅ [${peerId}] 유저의 영상 박스가 제거되었습니다.`);
   });
 }
 
