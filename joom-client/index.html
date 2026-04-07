@@ -14,51 +14,94 @@
         height: 100vh;
         overflow: hidden; /* 밖으로 나가는 것 차단 */
     }
-    /* 왼쪽 미디어 섹션 기준점 */
+    /* ✅ mediaSection을 화면 전체 높이 flex로 설정 */
     #mediaSection {
         flex: 7.5;
         display: flex;
         flex-direction: column;
+        height: 100vh;
         padding: 10px;
         background: #121212;
-        position: relative;
+        overflow: hidden; /* 내부 스크롤 제어 */
     }
-    /* ⭐ 핵심: 화면 공유가 크게 뜨기 위한 설정 */
+
+    /* ✅ 화면 공유 영역: 평소엔 숨김 */
     #mainScreen { 
         display: none;
+        flex: 0 0 auto; /* 크기 고정 안 함 */
         width: 100%;
-        max-height: 55vh;
+        max-height: 60vh;
         background: #000;
         margin-bottom: 10px;
         border-radius: 10px;
+        overflow: hidden;
     }
     #mainScreen video { width: 100%; height: 100%; object-fit: contain; }
 
+    /* ✅ ⭐ 핵심: 비디오 그리드 (인원수에 따라 자동 조절) */
     #remoteVideos { 
+        flex: 1; /* 남은 공간 다 차지 */
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 유동적 그리드 */
-        gap: 10px;
-        padding: 10px;
+        /* 최소 300px 너비를 유지하며 남는 공간을 꽉 채움 */
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+        gap: 15px; /* 간격을 넓혀서 더 정돈되어 보이게 함 */
         width: 100%;
-        height: calc(100vh - 100px); /* 채팅창 높이 제외 */
-        overflow-y: auto; /* 인원이 많아지면 스크롤 생성 */
+        height: 100%; /* 부모 높이를 따라가게 함 */
+        overflow-y: auto; /* 인원이 너무 많아지면 스크롤 */
+        padding: 10px;
     }
 
-    #remoteVideos video { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+    /* ✅ 비디오를 감싸는 박스 스타일 */
     .remote-video-box {
         position: relative;
         width: 100%;
-        aspect-ratio: 16 / 9; /* 16:9 비율 유지 */
+        /* 16:9 비율 유지 (인원수가 적을 때 화면에 꽉 차게 나옴) */
+        aspect-ratio: 16 / 9; 
         background: #000;
         border-radius: 8px;
         overflow: hidden;
+        border: 2px solid transparent;
     }
 
+    /* 내 화면 강조 */
+    .local-member{
+        border: 2px solid #61afef o !important;
+    }
+
+    /* 내 비디오만 좌우 반전 */
+    .local-member video {
+        transform: scaleX(-1);
+    }
+
+    /* 이름표 스타일 */
+    .video-name-tag{
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background-color: #1a1a1a;
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    /* 마이크가 꺼졌을 때 아이콘 자리 (나중에 활용) */
+    .status-icon-mic {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+
+    /* ✅ 비디오 태그가 박스를 꽉 채우도록 */
     .remote-video-box video {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: cover; /* 얼굴 영상은 꽉 채우기 */
     }
+    #remoteVideos video { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
 
     /* 하단 내 영상 & 버튼 바 */
     #localControls {
@@ -198,9 +241,9 @@
             <div id="remoteVideos"></div>
 
             <div id="localControls">
-                <div class="local-video-box">
+                <!-- <div class="local-video-box">
                     <video id="localVideo" autoplay playsinline muted></video>
-                </div>
+                </div> -->
                 <div class="button-group-main">
                     <button id="muteBtn">Mute</button>
                     <button id="cameraBtn">Camera</button>

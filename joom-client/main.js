@@ -14,7 +14,7 @@ let userId = sessionStorage.getItem("myId");
 const consumers = new Map();
 const consumingProducers = new Set();
 
-const localVideo = document.getElementById("localVideo");
+// const localVideo = document.getElementById("localVideo");
 const remoteVideos = document.getElementById("remoteVideos");
 const shareBtn = document.getElementById("shareScreen");
 const joinBtn = document.getElementById("joinBtn");
@@ -84,6 +84,7 @@ function initSpringSocket(roomId, userId){
       case "JOIN":
         users = msg.currentUsers || [];
         renderUsers();
+        updateVideoGridLayout();
         addChatMessage(`${msg.from}님이 입장했습니다.`,"system");
         break;
 
@@ -101,7 +102,7 @@ function initSpringSocket(roomId, userId){
         break;
         
       case "STATUS":
-        const { from, payload } = data; // data는 Spring에서 받은 JSON
+        const { from, payload } = msg; // data는 Spring에서 받은 JSON
         const { type, enabled } = payload;
 
         // 1. 해당 유저의 비디오 박스 요소를 찾음
@@ -120,7 +121,7 @@ function initSpringSocket(roomId, userId){
             }
         }
         break;
-        
+
       case "LEAVE":
         users = msg.currentUsers || [];
         renderUsers();
@@ -249,7 +250,28 @@ async function createTransport(data) {
         video: { width: 640, height: 480 },
         audio: true 
       });
+      // 내 영상 박스 생성
+      const localBox =document.createElement("div");
+      localBox.id = "container-local";
+      localBox.className = "remote-video-box local-member";
+
+      // 이름표 추가
+      const nameTag = document.createElement("div");
+      nameTag.className = "video-name-tag";
+      nameTag.innerText = "나";
+      localBox.appendChild(nameTag);
+
+      const localVideo = document.createElement("video");
       localVideo.srcObject = stream;
+      localVideo.autoplay = true;
+      localVideo.playsInline = true;
+      localVideo.muted = true; // 내소리는 나한테 안 들리게
+
+      localBox.appendChild(localVideo);
+
+      // 그리드 영역에 내 영상 꽂기
+      remoteVideos.appendChild(localBox);
+
       window.localSteam = stream;
 
       const videoTrack = stream.getVideoTracks()[0];
@@ -356,8 +378,8 @@ async function handleConsume(data) {
   };
 
   video.id = "video-" + data.producerId;
-  video.className = "remote-video-box";
-  video.setAttribute("data-peer-id", data.peerId);
+  // video.className = "remote-video-box";
+  // video.setAttribute("data-peer-id", data.peerId);
   
   //  화면 공유시 스타일 차별화
   if(data.appData && data.appData.type ==="screen"){
@@ -365,10 +387,31 @@ async function handleConsume(data) {
       const mainScreen = document.getElementById("mainScreen");
       mainScreen.style.display = "block";
       mainScreen.innerHTML = ""; // 제목 하나 넣어줌
-      mainScreen.appendChild(video);
+      // 화면 공유용 컨테이너
+      const videoBox = document.createElement("div");
+      videoBox.style.width = "100%";
+      videoBox.style.height = "100%";
+      
+      // 비디오에 직접 스타일을 주어 잘림 방지
+      video.style.objectFit = "contain";
+      videoBox.appendChild(video);
+      mainScreen.appendChild(videoBox);
       console.log("📺 화면 공유를 메인 섹션에 띄웁니다.");
     }
   }else{
+    // 비디오 감쌀 박스 생성
+    const videoBox = document.createElement("div");
+    videoBox.id = "container-" + data.producerId;
+    videoBox.className = "remote-video-box";
+    videoBox.setAttribute("data-peer-id", data.peerId);
+
+    // 이름표 생성
+    const nameTag = document.createElement("div");
+    nameTag.className = "video-name-tag";
+    // Spring 서버에서 보낸 peerId를 이름으로 표시 (닉네임 데이터가 있다면 그것을 사용)
+    nameTag.innerText = data.peerId || "참가자";
+
+    // 조립: 박스 안에
     remoteVideos.appendChild(video);
   }
 
@@ -378,6 +421,24 @@ async function handleConsume(data) {
     data:{consumerId: consumer.id}
   }));
   // 비디오가 멈춰있다면 서버에서 consumer.resume()을 호출했는지 확인하세요.
+}
+
+// main.js - 유저 목록이 갱신될 때 실행되는 함수 예시
+function updateVideoGridLayout() {
+    const videoGrid = document.getElementById("remoteVideos");
+    const userCount = users.length + 1; // 상대방 수 + 나
+
+    // 인원수에 따라 클래스 부여
+    if (userCount <= 2) {
+        // 1~2명일 때는 한 줄에 한 명씩 크게 나오게 설정
+        videoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(450px, 1fr))";
+    } else if (userCount <= 4) {
+        // 3~4명일 때는 2x2 바둑판 모양 유도
+        videoGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
+    } else {
+        // 5명 이상일 때는 기본 minmax 설정
+        videoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
+    }
 }
 
 // 화면공유
