@@ -83,9 +83,14 @@ function initSpringSocket(roomId, userId){
     switch (msg.type) {
       case "JOIN":
         users = msg.currentUsers || [];
+        window.userStatuses = msg.userStatuses || {};
+        console.log("유저 상태들 !!!",window.userStatuses);
+        // 비디오 박스 
         renderUsers();
+        // 박스 배치 조절
         updateVideoGridLayout();
         addChatMessage(`${msg.from}님이 입장했습니다.`,"system");
+        // 추가 - 기존/신규 유저들의 마이크 상태 아이콘 일괄 업데이트
         break;
 
       case "CHAT":
@@ -111,7 +116,7 @@ function initSpringSocket(roomId, userId){
         if (remoteVideoContainer) {
             if (type === "audio") {
                 // 마이크 아이콘 업데이트
-                const micIcon = remoteVideoContainer.querySelector(".mic-status-icon");
+                const micIcon = remoteVideoContainer.querySelector(".status-icon-mic");
                 micIcon.innerText = enabled ? "🎙️" : "🔇";
                 micIcon.classList.toggle("muted", !enabled);
             } else if (type === "video") {
@@ -254,11 +259,24 @@ async function createTransport(data) {
       const localBox =document.createElement("div");
       localBox.id = "container-local";
       localBox.className = "remote-video-box local-member";
+      localBox.setAttribute("data-peer-id", userId); // 내 ID도 부여
+
+      // 마이크 추가
+      const micIcon = document.createElement("div");
+      micIcon.className = "status-icon-mic";
+      micIcon.id = "local-mic-icon"; // 내 마이크 아이콘은 ID로 접근하기 쉽게 설정
+      micIcon.innerText = "🎙️";
+      micIcon.style.position = "absolute";
+      micIcon.style.top = "10px";
+      micIcon.style.right = "10px";
+      micIcon.style.zIndex = "10";
 
       // 이름표 추가
       const nameTag = document.createElement("div");
       nameTag.className = "video-name-tag";
       nameTag.innerText = "나";
+
+      localBox.appendChild(micIcon);
       localBox.appendChild(nameTag);
 
       const localVideo = document.createElement("video");
@@ -425,10 +443,17 @@ async function handleConsume(data) {
     // 비디오 감쌀 박스 생성
     const videoBox = document.createElement("div");
     videoBox.id = "container-" + data.producerId;
-    // handleConsume에서 박스 만들 때 로그
-    console.log("생성된 박스 ID:", "container-" + data.producerId);
     videoBox.className = "remote-video-box";
     videoBox.setAttribute("data-peer-id", data.peerId);
+
+    // 마이크 상태 아이콘 추가
+    const micIcon = document.createElement("div");
+    micIcon.className = "status-icon-mic"; 
+    micIcon.innerText = "🎙️"; // 기본값은 켜짐 상태
+    micIcon.style.position = "absolute";
+    micIcon.style.top = "10px";
+    micIcon.style.right = "10px";
+    micIcon.style.zIndex = "10";
 
     // 이름표 생성
     const nameTag = document.createElement("div");
@@ -440,8 +465,12 @@ async function handleConsume(data) {
     video.style.objectFit = "cover";
     videoBox.appendChild(video);
     videoBox.appendChild(nameTag);
+    videoBox.appendChild(micIcon);
     // 그리드에 박스 추가
     remoteVideos.appendChild(videoBox);
+
+    // 추가 - 박스가 생성되자마자 저장된 상태를 확인하고 적용
+    applyInitialStatus(data.peerId, videoBox);
 
     // 레이아웃 갱신 호출
     if(typeof updateVideoGridLayout === "function"){
@@ -692,6 +721,31 @@ function renderUsers() {
 
     userListDiv.appendChild(div);
   });
+}
+
+function applyInitialStatus(peerId, container) {
+  // join 시점 window.userStatuses 저장해둔 데이터 가져옴
+  if(!window.userStatuses || !window.userStatuses[peerId]) return;
+  try {
+    const status = JSON.parse(window.userStatuses[peerId]);
+    // mic 아이콘 업데이트
+    const micIcon = container.querySelector(".status-icon-mic");
+    if(micIcon) {
+      micIcon.innerText = status.audio ? "🎙️" : "🔇";
+      micIcon.style.color = status.audio ? "white" : "coral";
+    }
+
+    // camera 리소스 최적화
+    if(status.video === false){
+      const video = container.querySelector("video");
+        if (video) {
+            video.style.display = "none";
+            container.style.backgroundColor = "#1a1a1a";
+        }
+    }
+  } catch (e) {
+    console.error("초기 상태 적용 실패 :", e);
+  }
 }
 
 function leaveRoom() {

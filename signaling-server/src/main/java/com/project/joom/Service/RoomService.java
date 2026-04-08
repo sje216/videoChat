@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,11 +33,17 @@ public class RoomService {
         List<String> currentUsers = roomRepository.getRoomUsers(roomId).keySet()
                 .stream().map(Object::toString).toList();
 
+        // redis에서 이 방의 모든 유저 상태(마이크/카메라) 가져오기
+        // Key: room:123:status -> { "userA": {audio:false, video:true},"userB": {...} }
+        String statusKey = "room:" + roomId + ":status";
+        Map<Object, Object> allStatuses =  redisTemplate.opsForHash().entries(statusKey);
+
         SignalMessage msg =  SignalMessage.builder()
                 .type("JOIN")
                 .roomId(roomId)
                 .from(userId)
                 .payload(Map.of("message", userId + "님이 입장하셨습니다."))
+                .userStatuses(allStatuses)
                 .currentUsers(currentUsers)
                 .build();
 
@@ -97,13 +104,36 @@ public class RoomService {
     public void handleStatus(SignalMessage msg) {
         String roomId = msg.getRoomId();
         String userId = msg.getFrom();
+        String redisKey = "room:" + roomId + ":status";
 
+        // client 가 보낸 payload 추출 (audio:true etc)
         SignalMessage.StatusPayload payload = objectMapper.convertValue(msg.getPayload(), SignalMessage.StatusPayload.class);
 
-        // key : room:123:status, Field : userA_audio, Value : false
-        String redisKey = "room:" + roomId + ":status";
-        redisTemplate.opsForHash().put(redisKey, userId + "_" + payload.getType(), String.valueOf(payload.isEnabled()));
-        
+        // redis에 이 유저의 기존 전체 상태 가져오기
+
+        try {
+            Object existingStatus = redisTemplate.opsForHash().get(redisKey, userId);
+            Map<String, Object> statusMap = new HashMap<>();
+
+            if (existingStatus != null) {
+                // 기존 데이터가 있다면 JSON 문자열을 Map으로 변환
+                statusMap = objectMapper.readValue(existingStatus.toString(), Map.class);
+            } else {
+                // 처음 저장하는 유저라면 기본값 설정
+                statusMap.put("audio", true);
+                statusMap.put("video", true);
+            }
+
+            // 현재 들어온 상태값 업데이트 (audio 혹은 video)
+            statusMap.put(payload.getType(), payload.isEnabled());
+            // 다시 JSON 문자열로 바꿔서 Redis에 저장
+            // Key: room:123:status -> { "userA": {audio:false, video:true},
+            redisTemplate.opsForHash().put(redisKey, userId, objectMapper.writeValueAsString(statusMap));
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         // 다른 사용자에게 알림
         publishMsg(roomId, msg);
     }
