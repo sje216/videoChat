@@ -27,6 +27,9 @@ const pub = new Redis();
 // 구독
 const sub = new Redis();
 
+// 삭제 대기
+const pendingSfuRemovals = new Map();
+
 console.log("Redis connected");
 
 await initMediasoup();
@@ -380,6 +383,12 @@ wss.on("connection", async (ws, req) => {
 
             ws.id = userId;
             ws.roomId = roomId;
+            if(pendingSfuRemovals.has(userId)){
+                console.log(`[SFU] 유저 ${userId} 돌아옴. 예약 취소 및 세션 유지.`);
+                //  예약 작업 취소
+                clearTimeout(pendingSfuRemovals.get(userId));
+                pendingSfuRemovals.delete(userId);
+            }
             isAuthor = true;
             console.log("[인증성공]", userId);
 
@@ -393,17 +402,33 @@ wss.on("connection", async (ws, req) => {
     
 
     ws.on("close", async () => {
-        const room = rooms.get(ws.roomId);
-        if(!room) return;
+        if(!ws.id || !ws.roomId) return;
+        console.log(`[SFU] 유저 ${ws.id} 연결 끊김. 10초 대기 ...`);
 
-        const peer = room.peers.get(ws.id);
-        if(!peer) return;
+        // 10초 대기 후 지우기 예약
+        const timeoutId = setTimeout(async () => {
+            const room = rooms.get(ws.roomId);
+            if(!room) return;
+    
+            const peer = room.peers.get(ws.id);
+            if(!peer) return;
+    
+            peer.consumers.forEach(c => c.close());
+            peer.producers.forEach(p => p.close());
+            peer.transports.forEach(t => t.close());
+    
+            room.peers.delete(ws.id);
+            pendingSfuRemovals.delete(ws.id);
 
-        peer.consumers.forEach(c => c.close());
-        peer.producers.forEach(p => p.close());
-        peer.transports.forEach(t => t.close());
+            console.log(`[SFU] 유저 ${ws.id} 자원 정리 완료.`);
 
-        room.peers.delete(ws.id);
+            if(room.peers.size === 0){
+                rooms.delete(ws.roomId);
+                console.log(`[SFU] 빈 방 삭제: ${ws.roomId}`);
+            }
+        }, 10000);
+
+        pendingSfuRemovals.set(ws.id, timeoutId);
 
         // 다른 사람에게 알림
         await pub.publish("room", JSON.stringify({
@@ -411,11 +436,6 @@ wss.on("connection", async (ws, req) => {
             roomId: ws.roomId,
             peerId: ws.id
         }));
-
-        if(room.peers.size === 0){
-            rooms.delete(ws.roomId);
-            console.log("room is now empty", ws.roomId);
-        }
 
         console.log("peer cleaned : ", ws.id);
     });

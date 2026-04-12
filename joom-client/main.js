@@ -61,6 +61,12 @@ async function startAndjoin() {
 }
 
 function initSpringSocket(roomId, userId){
+  // 중복 연결 방지
+  if(springSocket){
+    springSocket.onclose = null;
+    springSocket.close();
+  }
+
   springSocket = new WebSocket(`ws://localhost:8080/ws?roomId=${roomId}&userId=${userId}`);
 
   springSocket.onopen = () => {
@@ -410,7 +416,6 @@ async function handleConsume(data) {
     audio.srcObject = stream;
     audio.autoplay = true;
     console.log("🔊 오디오 트랙 수신: 소리만 재생합니다.");
-
     //resume 요청 후 함수 종료
     return sfuSocket.send(JSON.stringify({
       type:"resumeConsumer",
@@ -418,21 +423,58 @@ async function handleConsume(data) {
     }));
   }
 
-  console.log("creting video for producer : ",data.producerId);
-  const video       = document.createElement("video");
-  video.srcObject   = stream;
-  video.autoplay    = true;
-  video.playsInline = true;
+  const peerId = data.peerId;
+  let videoBox = document.getElementById("container-"+peerId);
+  // 재연결시 이미 해당 유저의 박스가 있다면 내부 비디오만 교체
+  if(videoBox){
+    console.log(`[복구] 유저 ${peerId}의 기존 박스를 재사용합니다.`);
+    // 중복 생성 방지: 이미 해당 유저의 박스가 있다면 제거 후 재생성
+    const existing = videoBox.querySelector("video");
+    if (existing) existing.srcObject = stream;
+  }else{
+    // [신규 모드] 박스가 없다면 새로 생성 (기존 로직 유지)
+    console.log(`[신규] 유저 ${peerId}의 비디오 박스를 생성합니다.`);
+     // 비디오 감쌀 박스 생성
+    videoBox = document.createElement("div");
+    videoBox.id = "container-" + peerId;
+    videoBox.className = "remote-video-box";
+    videoBox.setAttribute("data-peer-id", peerId);
+    // video 생성
+    const video       = document.createElement("video");
+    video.srcObject   = stream;
+    video.autoplay    = true;
+    video.playsInline = true;
+    video.style.objectFit = "cover";
 
-  // 비디오 재생 보장 (일부 브라우저 정책 대응)
-  video.onloadedmetadata = () => {
-    video.play().catch(e => console.error("video play 실패 : ", e));
-  };
+    // 비디오 재생 보장 (일부 브라우저 정책 대응)
+    video.onloadedmetadata = () => {
+      video.play().catch(e => console.error("video play 실패 : ", e));
+    };
 
-  video.id = "video-" + data.producerId;
-  // video.className = "remote-video-box";
-  // video.setAttribute("data-peer-id", data.peerId);
-  
+    // 마이크 상태 아이콘 추가
+    const micIcon = document.createElement("div");
+    micIcon.className = "status-icon-mic"; 
+    micIcon.innerText = "🎙️"; // 기본값은 켜짐 상태
+    micIcon.style.position = "absolute";
+    micIcon.style.top = "10px";
+    micIcon.style.right = "10px";
+    micIcon.style.zIndex = "10";
+
+    // 이름표 생성
+    const nameTag = document.createElement("div");
+    nameTag.className = "video-name-tag";
+    // Spring 서버에서 보낸 peerId를 이름으로 표시 (닉네임 데이터가 있다면 그것을 사용)
+    nameTag.innerText = data.peerId || "참가자";
+
+    // 조립: 박스 안에 비디오와 이름표 넣기
+    videoBox.appendChild(video);
+    videoBox.appendChild(nameTag);
+    videoBox.appendChild(micIcon);
+    // 그리드에 박스 추가
+    remoteVideos.appendChild(videoBox);
+
+  }
+
   //  화면 공유시 스타일 차별화
   if(data.appData && data.appData.type ==="screen"){
     const mainScreen = document.getElementById("mainScreen");
@@ -454,48 +496,14 @@ async function handleConsume(data) {
       // 화면 공유가 생겼으므로 하단 그리드 레이아웃 재조정
       updateVideoGridLayout();
     }
-  }else{
+  }
 
-    // 중복 생성 방지: 이미 해당 유저의 박스가 있다면 제거 후 재생성
-    const existingBox = document.getElementById("container-" + data.producerId);
-    if (existingBox) existingBox.remove();
-
-    // 비디오 감쌀 박스 생성
-    const videoBox = document.createElement("div");
-    videoBox.id = "container-" + data.producerId;
-    videoBox.className = "remote-video-box";
-    videoBox.setAttribute("data-peer-id", data.peerId);
-
-    // 마이크 상태 아이콘 추가
-    const micIcon = document.createElement("div");
-    micIcon.className = "status-icon-mic"; 
-    micIcon.innerText = "🎙️"; // 기본값은 켜짐 상태
-    micIcon.style.position = "absolute";
-    micIcon.style.top = "10px";
-    micIcon.style.right = "10px";
-    micIcon.style.zIndex = "10";
-
-    // 이름표 생성
-    const nameTag = document.createElement("div");
-    nameTag.className = "video-name-tag";
-    // Spring 서버에서 보낸 peerId를 이름으로 표시 (닉네임 데이터가 있다면 그것을 사용)
-    nameTag.innerText = data.peerId || "참가자";
-
-    // 조립: 박스 안에 비디오와 이름표 넣기
-    video.style.objectFit = "cover";
-    videoBox.appendChild(video);
-    videoBox.appendChild(nameTag);
-    videoBox.appendChild(micIcon);
-    // 그리드에 박스 추가
-    remoteVideos.appendChild(videoBox);
-
-    // 추가 - 박스가 생성되자마자 저장된 상태를 확인하고 적용
-    applyInitialStatus(data.peerId, videoBox);
+  // 추가 - 박스가 생성되자마자 저장된 상태를 확인하고 적용
+  applyInitialStatus(data.peerId, videoBox);
 
     // 레이아웃 갱신 호출
-    if(typeof updateVideoGridLayout === "function"){
-      updateVideoGridLayout();
-    }
+  if(typeof updateVideoGridLayout === "function"){
+    updateVideoGridLayout();
   }
 
   // 서버에서 paused를 보냈다면 resume 필수
