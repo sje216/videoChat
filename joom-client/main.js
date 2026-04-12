@@ -10,6 +10,7 @@ let pendingProduceCallback = null; // 서버 응답 대기용
 let currentUserId = null;
 let roomId = null;
 let userId = sessionStorage.getItem("myId");
+let reconnectAttempts = 0;
 
 const consumers = new Map();
 const consumingProducers = new Set();
@@ -64,7 +65,7 @@ function initSpringSocket(roomId, userId){
 
   springSocket.onopen = () => {
     console.log("✅ SpringSocket(채팅/신호) 연결 성공!");
-
+    reconnectAttempts = 0; // 연결 성공 시 초기화
     springSocket.send(JSON.stringify({
       type:"JOIN",
       roomId: roomId,
@@ -137,9 +138,28 @@ function initSpringSocket(roomId, userId){
   }
 
   springSocket.onclose = (e) => {
+    // 사용자가 직접 나간게 아니라면 재시도 지수백오프 형식
+    if(e.code !== 1000){
+      const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, 30000);
+      console.warn("시그널링 연결이 끊겼습니다. 재연결을 시도합니다.");
+      setTimeout(() => {
+        reconnectAttempts++;
+        initSpringSocket(roomId, userId);
+      }, delay);
+    }
     console.log("ℹ️ SpringSocket 연결 종료:", e.code, e.reason);
   };
 }
+
+// 2. 새로고침/창 닫기 대응
+window.addEventListener('beforeunload', () => {
+    // 새로고침 시에는 '재연결' 로직을 태우지 않고 그냥 닫기만 함
+    // 어차피 새 페이지가 뜨면서 initSpringSocket()이 다시 실행될 것이기 때문
+    if (springSocket) {
+        springSocket.onclose = null; 
+        springSocket.close();
+    }
+});
 
 function initSfuSocket(sfuUrl, roomId, userId, ticket){
   sfuSocket = new WebSocket(`${sfuUrl}?roomId=${roomId}&userId=${userId}&token=${ticket}`);
