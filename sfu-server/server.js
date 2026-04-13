@@ -283,7 +283,8 @@ async function handleMsg(ws, msg) {
                         producerId: producer.id,
                         kind: consumer.kind,
                         rtpParameters: consumer.rtpParameters,
-                        peerId: producerOwner
+                        peerId: producerOwner,
+                        appData: producer.appData // 👈 이 줄이 빠져있어서 클라이언트에서 isScreen이 false가 된 것입니다!
                     }
                 }));
                 break;
@@ -405,7 +406,7 @@ wss.on("connection", async (ws, req) => {
         if(!ws.id || !ws.roomId) return;
         console.log(`[SFU] 유저 ${ws.id} 연결 끊김. 10초 대기 ...`);
 
-        // 10초 대기 후 지우기 예약
+        // 30초 대기 후 지우기 예약
         const timeoutId = setTimeout(async () => {
             const room = rooms.get(ws.roomId);
             if(!room) return;
@@ -426,7 +427,7 @@ wss.on("connection", async (ws, req) => {
                 rooms.delete(ws.roomId);
                 console.log(`[SFU] 빈 방 삭제: ${ws.roomId}`);
             }
-        }, 10000);
+        }, 30000);
 
         pendingSfuRemovals.set(ws.id, timeoutId);
 

@@ -1,4 +1,5 @@
 import * as mediasoupClient from "mediasoup-client";
+import UIManager from "./UIManager";
 
 let springSocket  = null; // 채팅, 입장/퇴장, 유저리스트
 let sfuSocket     = null; // 오직 mediasoup
@@ -12,10 +13,10 @@ let roomId = null;
 let userId = sessionStorage.getItem("myId");
 let reconnectAttempts = 0;
 
+const ui = new UIManager();
 const consumers = new Map();
 const consumingProducers = new Set();
 
-// const localVideo = document.getElementById("localVideo");
 const remoteVideos = document.getElementById("remoteVideos");
 const shareBtn = document.getElementById("shareScreen");
 const joinBtn = document.getElementById("joinBtn");
@@ -95,8 +96,8 @@ function initSpringSocket(roomId, userId){
         // 비디오 박스 
         renderUsers();
         // 박스 배치 조절
-        updateVideoGridLayout();
-        addChatMessage(`${msg.from}님이 입장했습니다.`,"system");
+        ui.updateVideoGridLayout();
+        ui.addChatMessage(null, `${msg.from}님이 입장했습니다.`,"system");
         // 추가 - 기존/신규 유저들의 마이크 상태 아이콘 일괄 업데이트
         break;
 
@@ -105,12 +106,12 @@ function initSpringSocket(roomId, userId){
         const sender = msg.from || "익명";
         const text = msg.payload ? msg.payload.message : "메시지 오류";
         console.log(sender, text);
-        addChatMessage(`${sender} : ${text}`);
+        ui.addChatMessage(currentUserId, `${sender} : ${text}`);
         break;
 
       case "WHISPER":
         const whisperText = msg.payload? msg.payload.message : "메시지 내용 없음";
-        addChatMessage(`[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
+        ui.addChatMessage(currentUserId, `[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
         break;
         
       case "STATUS":
@@ -137,8 +138,8 @@ function initSpringSocket(roomId, userId){
       case "LEAVE":
         users = msg.currentUsers || [];
         renderUsers();
-        removePeer(msg.from);
-        addChatMessage(`${msg.from}님이 퇴장했습니다.`,"system");
+        ui.removePeer(msg.from);
+        ui.addChatMessage(null, `${msg.from}님이 퇴장했습니다.`,"system");
         break;
     }
   }
@@ -232,7 +233,7 @@ function initSfuSocket(sfuUrl, roomId, userId, ticket){
 
       case "producerClosed":
         console.log("producerClosed: ", msg.producerId);
-        removeVideo(msg.producerId);
+        removeVideo(msg.producerId, currentUserId, true);
         break;
 
     }
@@ -416,94 +417,14 @@ async function handleConsume(data) {
     audio.srcObject = stream;
     audio.autoplay = true;
     console.log("🔊 오디오 트랙 수신: 소리만 재생합니다.");
-    //resume 요청 후 함수 종료
-    return sfuSocket.send(JSON.stringify({
-      type:"resumeConsumer",
-      data: { consumerId: consumer.id }
-    }));
-  }
-
-  const peerId = data.peerId;
-  let videoBox = document.getElementById("container-"+peerId);
-  // 재연결시 이미 해당 유저의 박스가 있다면 내부 비디오만 교체
-  if(videoBox){
-    console.log(`[복구] 유저 ${peerId}의 기존 박스를 재사용합니다.`);
-    // 중복 생성 방지: 이미 해당 유저의 박스가 있다면 제거 후 재생성
-    const existing = videoBox.querySelector("video");
-    if (existing) existing.srcObject = stream;
+    
   }else{
-    // [신규 모드] 박스가 없다면 새로 생성 (기존 로직 유지)
-    console.log(`[신규] 유저 ${peerId}의 비디오 박스를 생성합니다.`);
-     // 비디오 감쌀 박스 생성
-    videoBox = document.createElement("div");
-    videoBox.id = "container-" + peerId;
-    videoBox.className = "remote-video-box";
-    videoBox.setAttribute("data-peer-id", peerId);
-    // video 생성
-    const video       = document.createElement("video");
-    video.srcObject   = stream;
-    video.autoplay    = true;
-    video.playsInline = true;
-    video.style.objectFit = "cover";
-
-    // 비디오 재생 보장 (일부 브라우저 정책 대응)
-    video.onloadedmetadata = () => {
-      video.play().catch(e => console.error("video play 실패 : ", e));
-    };
-
-    // 마이크 상태 아이콘 추가
-    const micIcon = document.createElement("div");
-    micIcon.className = "status-icon-mic"; 
-    micIcon.innerText = "🎙️"; // 기본값은 켜짐 상태
-    micIcon.style.position = "absolute";
-    micIcon.style.top = "10px";
-    micIcon.style.right = "10px";
-    micIcon.style.zIndex = "10";
-
-    // 이름표 생성
-    const nameTag = document.createElement("div");
-    nameTag.className = "video-name-tag";
-    // Spring 서버에서 보낸 peerId를 이름으로 표시 (닉네임 데이터가 있다면 그것을 사용)
-    nameTag.innerText = data.peerId || "참가자";
-
-    // 조립: 박스 안에 비디오와 이름표 넣기
-    videoBox.appendChild(video);
-    videoBox.appendChild(nameTag);
-    videoBox.appendChild(micIcon);
-    // 그리드에 박스 추가
-    remoteVideos.appendChild(videoBox);
-
-  }
-
-  //  화면 공유시 스타일 차별화
-  if(data.appData && data.appData.type ==="screen"){
-    const mainScreen = document.getElementById("mainScreen");
-    if(mainScreen){
-      mainScreen.style.setProperty('display', 'block', 'important'); // CSS의 !important를 뚫고 보여줌
-      mainScreen.innerHTML = ""; // 제목 하나 넣어줌
-      // 화면 공유용 컨테이너
-      const videoBox = document.createElement("div");
-      videoBox.className = "main-video-wrapper";
-      // videoBox.style.width = "100%";
-      // videoBox.style.height = "100%";
-      
-      // 비디오에 직접 스타일을 주어 잘림 방지
-      video.style.objectFit = "contain";
-      videoBox.appendChild(video);
-      mainScreen.appendChild(videoBox);
-      console.log("📺 화면 공유를 메인 섹션에 띄웁니다.");
-
-      // 화면 공유가 생겼으므로 하단 그리드 레이아웃 재조정
-      updateVideoGridLayout();
-    }
-  }
-
-  // 추가 - 박스가 생성되자마자 저장된 상태를 확인하고 적용
-  applyInitialStatus(data.peerId, videoBox);
-
-    // 레이아웃 갱신 호출
-  if(typeof updateVideoGridLayout === "function"){
-    updateVideoGridLayout();
+    console.log("서버에서 받은 전체 데이터:", data);
+    const isScreen = data.appData && data.appData.type === "screen";
+                   
+    // 기존 박스 재사용 또는 신규 생성이 처리
+    ui.updateVideoView(data.peerId, stream, isScreen);
+    // 초기 상태 적용 (마이크 끔/ 카메라 끔 등)
   }
 
   // 서버에서 paused를 보냈다면 resume 필수
@@ -511,31 +432,7 @@ async function handleConsume(data) {
     type: "resumeConsumer",
     data:{consumerId: consumer.id}
   }));
-  // 비디오가 멈춰있다면 서버에서 consumer.resume()을 호출했는지 확인하세요.
-}
-
-// main.js - 유저 목록이 갱신될 때 실행되는 함수 예시
-function updateVideoGridLayout() {
-    const videoGrid = document.getElementById("remoteVideos");
-    const mainScreen = document.getElementById("mainScreen");
-    const userCount = users.length + 1; // 상대방 수 + 나
-
-    //  안전장치: 메인 스크린 안에 자식이 없으면 숨기기
-    if (mainScreen.children.length === 0) {
-        mainScreen.style.setProperty('display', 'none', 'important');
-    }
-
-    // 인원수에 따라 클래스 부여
-    if (userCount <= 2) {
-        // 1~2명일 때는 한 줄에 한 명씩 크게 나오게 설정
-        videoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(450px, 1fr))";
-    } else if (userCount <= 4) {
-        // 3~4명일 때는 2x2 바둑판 모양 유도
-        videoGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
-    } else {
-        // 5명 이상일 때는 기본 minmax 설정
-        videoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
-    }
+  // 비디오가 멈춰있다면 서버에서 consumer.resume()을 호출했는지 확인
 }
 
 // 화면공유
@@ -561,7 +458,9 @@ shareBtn.onclick = async () => {
       }));
 
       stopScreenShare();
-      removeVideo(screenProducerId);
+      // 내 peerId와 isScreen=true를 전달하여 UI 삭제
+      console.log("currentUserId :", currentUserId);
+      removeVideo(screenProducerId, currentUserId, true);
     }
   };
 };
@@ -573,7 +472,7 @@ function stopScreenShare() {
   screenProducer = null;
 }
 
-function removeVideo(producerId){
+function removeVideo(producerId, currentUserId, isScreen = false){
   
   // removeVideo 시작할 때 로그
   console.log("지우려는 박스 ID:", "container-" + producerId);
@@ -584,45 +483,9 @@ function removeVideo(producerId){
     consumers.delete(producerId);
   }
 
-  // container 찾음
-  const videoContainer = document.getElementById("container-" + producerId);
-  if(videoContainer){
-    if(videoContainer.parentElement && videoContainer.parentElement.id === "mainScreen"){
-      const mainScreen = document.getElementById("mainScreen");
-      mainScreen.style.display = "none"; // 화면 공유 박스 숨기기
-      mainScreen.innerText = ""; // 내부 잔여물 삭제
-      console.log("📺 화면 공유 종료: 메인 섹션을 숨깁니다.");
-    }
-    videoContainer.remove(); // 박스 자체를 삭제
-  }
-  // 영상이 사라졌으니 하단 그리드 레이아웃 재정렬
-  if (typeof updateVideoGridLayout === "function") {
-    updateVideoGridLayout();
-  }
+  // 2. UI 매니저를 통해 실제 DOM 제거
+    ui.removeVideoElement(currentUserId, isScreen);
 } 
-
-function removePeer(peerId){
-  console.log(`유저 퇴장 처리 (peerId : ${peerId} )`);
-
-  const containers = document.querySelectorAll(`[data-peer-id="${peerId}"]`);
-  
-  containers.forEach(c => {
-    if(c.parentElement && c.parentElement.id === "mainScreen"){
-      const mainScreen = document.getElementById("mainScreen");
-      mainScreen.style.display = "none";
-      mainScreen.innerHTML = "";
-      console.log("화면 메인 섹션 숨김 완료");
-    }
-    // 비디오 스트림 연결 해제
-    const video = c.querySelector("video");
-    if(video){
-      video.srcObject = null;
-    }
-    // 박스 전체 삭제
-    c.remove();
-    console.log(`✅ [${peerId}] 유저의 영상 박스가 제거되었습니다.`);
-  });
-}
 
 // send chat
 async function sendChat(){
@@ -650,36 +513,6 @@ async function sendChat(){
     console.error("채팅 전송 실패 : ",err);
   }
 
-}
-
-function addChatMessage(msg, type="normal"){
-  const chatBox = document.getElementById("chatBox");
-  const div = document.createElement("div");
-
-  div.style.marginBottom = "5px";
-  div.style.fontSize = "14px";
-
-  console.log("chat type: ",type);
-  if(type === "system"){
-    div.style.color = "#888";
-    div.style.fontStyle = "italic";
-    div.innerText = msg;
-  }else if(type ==="whisper"){
-    div.style.color = "#888";
-    div.style.fontWeight = "bold";
-    div.innerText = msg;
-  }else{
-    if(msg.startsWith(`${currentUserId} :`)){
-      console.log("msg : ",msg);
-      const content = msg.replace(`${currentUserId} :`,'').trim();
-      console.log("msg content: ",content);
-      div.innerHTML = `<span style="color:#98c379; font-weight:bold;">나:</span> ${content}`;
-    }else{
-      div.innerText = msg;
-    }
-  }
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 async function sendWhisper() {
@@ -713,67 +546,15 @@ async function sendWhisper() {
 }
 
 function renderUsers() {
-  userListDiv.innerHTML = "";
-
-  if (!users || !Array.isArray(users)) {
-    console.warn("유저 목록이 비어있거나 올바르지 않습니다.");
-    return;
-  }
-
-  const uniqueUsers = [...new Set(users)];
-  uniqueUsers.forEach(id => {
-    const div = document.createElement("div");
-    // 내 아이디면 별도 표시
-    const isMe = (id === currentUserId);
-    div.className = "user-item";
-    div.innerText = isMe ? `👤 ${id} (나)` : `👤 ${id}`;
-    // CSS 클래스 추가 (선택된 경우 강조)
-    div.style.padding = "8px";
-    div.style.margin = "4px 0";
-    div.style.borderRadius = "6px";
-    div.style.cursor = isMe ? "default" : "pointer";
-    div.style.backgroundColor = "#333";
-    
-    if (selectedUser === id) {
-      div.style.backgroundColor = "#c678dd"; // 귓속말 강조 색상 (보라)
-      div.style.color = "white";
-      div.style.fontWeight = "bold";
-    }
-
-    div.onclick = () => {
-      if(isMe) return;
-      selectedUser = id;
-      console.log("selected : ", id);
-      renderUsers();
-    };
-
-    userListDiv.appendChild(div);
-  });
-}
-
-function applyInitialStatus(peerId, container) {
-  // join 시점 window.userStatuses 저장해둔 데이터 가져옴
-  if(!window.userStatuses || !window.userStatuses[peerId]) return;
-  try {
-    const status = JSON.parse(window.userStatuses[peerId]);
-    // mic 아이콘 업데이트
-    const micIcon = container.querySelector(".status-icon-mic");
-    if(micIcon) {
-      micIcon.innerText = status.audio ? "🎙️" : "🔇";
-      micIcon.style.color = status.audio ? "white" : "coral";
-    }
-
-    // camera 리소스 최적화
-    if(status.video === false){
-      const video = container.querySelector("video");
-        if (video) {
-            video.style.display = "none";
-            container.style.backgroundColor = "#1a1a1a";
-        }
-    }
-  } catch (e) {
-    console.error("초기 상태 적용 실패 :", e);
-  }
+  // ui 매니저에게 렌더링 위임
+  // 인자 : 전체유저배열, 내 아이디, , 콜백함수
+  ui.renderUsers(users, selectedUser, currentUserId, (clickedId) => {
+    // 유저 클릭시 처리 로직
+    selectedUser = clickedId;
+    console.log("selected : ", clickedId);
+    // 선택 상태를 UI에 반영하기 위해 렌더링
+    renderUsers();
+  })
 }
 
 function leaveRoom() {
