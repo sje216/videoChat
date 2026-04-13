@@ -100,6 +100,9 @@ export default class UIManager{
         }
     }
 
+    /**
+     * 채팅 
+     */
     addChatMessage(sender, msg, type="normal"){
         const chatBox   = document.getElementById("chatBox");
         const div       = document.createElement("div");
