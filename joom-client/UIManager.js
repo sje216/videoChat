@@ -226,7 +226,7 @@ export default class UIManager{
     removeVideoElement(peerId, isScreen = false){
         console.log("화면공유 제거 isScreen :", isScreen);
         if(isScreen){
-            this.mainScreen.style.setProperty('display', 'none', '!important');
+            //this.mainScreen.style.setProperty('display', 'none', '!important');
             this.mainScreen.innerHTML = "";
             console.log("화면 공유 종료: 메인 섹션을 숨깁니다.");
         }else{

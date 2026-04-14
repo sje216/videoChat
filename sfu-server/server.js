@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import express, { json } from "express";
+import express, { json, raw } from "express";
 import { WebSocketServer } from "ws";
 import {initMediasoup, getRouter} from "./mediasoup.js";
 import path from "path";
@@ -41,6 +41,7 @@ sub.on("message", (channel, message) => {
     
     // 로그로 흐름 파악
     console.log(`[Redis Msg] type: ${data.type}, roomId: ${data.roomId}`);
+    
     
     if (!room) return;
 
@@ -127,11 +128,13 @@ function getAllProducers(room, excludeId){
 async function handleMsg(ws, msg) {
     try{
         const data = JSON.parse(msg);
-        console.log("ws msg : ",data.type);
-
-        switch(data.type){
+        const type = data.type;
+        console.log("ws msg : ",type);
+        
+        switch(type){
             case "joinRoom": {
-                const room = createRoom(data.data.roomId);
+                console.log("joinRoom : ",data);
+                const room = createRoom(data.roomId);
                 room.peers.set(ws.id, {
                     id: ws.id,
                     ws: ws,

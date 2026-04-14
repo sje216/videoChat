@@ -1,27 +1,27 @@
 import * as mediasoupClient from "mediasoup-client";
 import UIManager from "./UIManager";
+import SocketManager from "./SocketManager";
 
-let springSocket  = null; // 채팅, 입장/퇴장, 유저리스트
-let sfuSocket     = null; // 오직 mediasoup
 let device, sendTransport, recvTransport;
 let audioProducer, videoProducer, screenProducer;
-let users = [];
-let selectedUser = null;
-let pendingProduceCallback = null; // 서버 응답 대기용
-let currentUserId = null;
-let roomId = null;
-let userId = sessionStorage.getItem("myId");
-let reconnectAttempts = 0;
+let users                   = [];
+let selectedUser            = null;
+let pendingProduceCallback  = null; // 서버 응답 대기용
+let currentUserId           = null;
+let roomId                  = null;
+let userId                  = sessionStorage.getItem("myId");
 
-const ui = new UIManager();
-const consumers = new Map();
-const consumingProducers = new Set();
+const ui                  = new UIManager();
+const springSocket        = new SocketManager("spring");
+const sfuSocket           = new SocketManager("sfu");
+const consumers           = new Map();
+const consumingProducers  = new Set();
 
-const remoteVideos = document.getElementById("remoteVideos");
-const shareBtn = document.getElementById("shareScreen");
-const joinBtn = document.getElementById("joinBtn");
-const roomInput = document.getElementById("roomInput");
-const userListDiv = document.getElementById("userList");
+const remoteVideos  = document.getElementById("remoteVideos");
+const shareBtn      = document.getElementById("shareScreen");
+const joinBtn       = document.getElementById("joinBtn");
+const roomInput     = document.getElementById("roomInput");
+const userListDiv   = document.getElementById("userList");
 
 async function startAndjoin() {
   // UI 전환
@@ -32,11 +32,13 @@ async function startAndjoin() {
   transportCount =0;
   // 기존 데이터 싹 비우기
   users = [];
-  if(userListDiv) userListDiv.innerHTML = "";
+  if(userListDiv) userListDiv.innerHTML   = "";
   if(remoteVideos) remoteVideos.innerHTML = "";
   renderUsers();
+
   roomId = roomInput.value;
   if(!roomId) return alert("방 이름을 입력해주세요.");
+
   if(!userId){
     userId = "user_" + Math.floor(Math.random() * 1000);
     sessionStorage.setItem("myId", userId);
@@ -52,110 +54,124 @@ async function startAndjoin() {
     const {sfuUrl, ticket } = await res.json();
 
     // 관리/채팅 소켓
-    initSpringSocket(roomId, userId);
+    const springUrl = `ws://localhost:8080/ws?roomId=${roomId}&userId=${userId}`;
+    await springSocket.connect(springUrl);
+    console.log("springSocket 연결 성공!");
+    springSocket.send("JOIN", {roomId: roomId, from: userId});
     // 미디어 소켓
-    initSfuSocket(sfuUrl, roomId, userId, ticket);
-
+    const finalsfuUrl = `${sfuUrl}?roomId=${roomId}&userId=${userId}&token=${ticket}`;
+    await sfuSocket.connect(finalsfuUrl);
+    console.log("springSocket 연결 성공 후 실행되는 로직!");
+    sfuSocket.send("joinRoom", {roomId: roomId, userId: userId});
   }catch(err){
     console.error("입장실패 : ",err);
   }
-}
 
-function initSpringSocket(roomId, userId){
-  // 중복 연결 방지
-  if(springSocket){
-    springSocket.onclose = null;
-    springSocket.close();
-  }
+  // springSocket의 이벤트 리스너
+  springSocket.on("JOIN", (msg) => {
+    users = msg.currentUsers || [];
+    window.userStatuses = msg.userStatuses || {};
+    console.log("유저 상태들 !!!",window.userStatuses);
+    // 비디오 박스 
+    renderUsers();
+    // 박스 배치 조절
+    ui.updateVideoGridLayout();
+    ui.addChatMessage(null, `${msg.from}님이 입장했습니다.`,"system");
+    // 추가 - 기존/신규 유저들의 마이크 상태 아이콘 일괄 업데이트
+  });
 
-  springSocket = new WebSocket(`ws://localhost:8080/ws?roomId=${roomId}&userId=${userId}`);
+  springSocket.on("CHAT", (msg) => {
+     // 만약 msg.from이 안 나온다면 msg.userId 등 전달받은 필드명을 확인하세요.
+    const sender = msg.from || "익명";
+    const text = msg.payload ? msg.payload.message : "메시지 오류";
+    console.log(sender, text);
+    ui.addChatMessage(currentUserId, `${sender} : ${text}`);
+  });
 
-  springSocket.onopen = () => {
-    console.log("✅ SpringSocket(채팅/신호) 연결 성공!");
-    reconnectAttempts = 0; // 연결 성공 시 초기화
-    springSocket.send(JSON.stringify({
-      type:"JOIN",
-      roomId: roomId,
-      from: userId
-    }));
-  };
+ springSocket.on("WHISPER", (msg) => {
+  const whisperText = msg.payload? msg.payload.message : "메시지 내용 없음";
+  ui.addChatMessage(currentUserId, `[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
+ });
 
-  springSocket.onerror = (err) => {
-    console.error("❌ SpringSocket 연결 에러:", err);
-  };
+ springSocket.on("STATUS", (msg) => {
+      const { from, payload } = msg; // data는 Spring에서 받은 JSON
+      const { type, enabled } = payload;
 
-  springSocket.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
+      // 1. 해당 유저의 비디오 박스 요소를 찾음
+      const remoteVideoContainer = document.querySelector(`[data-peer-id="${from}"]`);
+      
+      if (remoteVideoContainer) {
+          if (type === "audio") {
+              // 마이크 아이콘 업데이트
+              const micIcon = remoteVideoContainer.querySelector(".status-icon-mic");
+              micIcon.innerText = enabled ? "🎙️" : "🔇";
+              micIcon.classList.toggle("muted", !enabled);
+          } else if (type === "video") {
+              // 카메라 아이콘 또는 비디오 오버레이 업데이트
+              const videoOffOverlay = remoteVideoContainer.querySelector(".video-off-overlay");
+              // videoOffOverlay.style.display = enabled ? "none" : "flex";
+          }
+      }
+  });
 
-    console.log("springsocket msgType : ",msg);
-    switch (msg.type) {
-      case "JOIN":
-        users = msg.currentUsers || [];
-        window.userStatuses = msg.userStatuses || {};
-        console.log("유저 상태들 !!!",window.userStatuses);
-        // 비디오 박스 
-        renderUsers();
-        // 박스 배치 조절
-        ui.updateVideoGridLayout();
-        ui.addChatMessage(null, `${msg.from}님이 입장했습니다.`,"system");
-        // 추가 - 기존/신규 유저들의 마이크 상태 아이콘 일괄 업데이트
-        break;
+  springSocket.on("LEAVE", (msg) => {
+    users = msg.currentUsers || [];
+    ui.renderUsers();
+    ui.removePeer(msg.from);
+    ui.addChatMessage(null, `${msg.from}님이 퇴장했습니다.`,"system");
+  });
 
-      case "CHAT":
-        // 만약 msg.from이 안 나온다면 msg.userId 등 전달받은 필드명을 확인하세요.
-        const sender = msg.from || "익명";
-        const text = msg.payload ? msg.payload.message : "메시지 오류";
-        console.log(sender, text);
-        ui.addChatMessage(currentUserId, `${sender} : ${text}`);
-        break;
 
-      case "WHISPER":
-        const whisperText = msg.payload? msg.payload.message : "메시지 내용 없음";
-        ui.addChatMessage(currentUserId, `[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
-        break;
-        
-      case "STATUS":
-        const { from, payload } = msg; // data는 Spring에서 받은 JSON
-        const { type, enabled } = payload;
+  // sfuSocket의 이벤트 리스너
+  sfuSocket.on("routerRtpCapabilities",async (msg) => {
+    await loadDevice(msg.data);
+  });
 
-        // 1. 해당 유저의 비디오 박스 요소를 찾음
-        const remoteVideoContainer = document.querySelector(`[data-peer-id="${from}"]`);
-        
-        if (remoteVideoContainer) {
-            if (type === "audio") {
-                // 마이크 아이콘 업데이트
-                const micIcon = remoteVideoContainer.querySelector(".status-icon-mic");
-                micIcon.innerText = enabled ? "🎙️" : "🔇";
-                micIcon.classList.toggle("muted", !enabled);
-            } else if (type === "video") {
-                // 카메라 아이콘 또는 비디오 오버레이 업데이트
-                const videoOffOverlay = remoteVideoContainer.querySelector(".video-off-overlay");
-                videoOffOverlay.style.display = enabled ? "none" : "flex";
-            }
-        }
-        break;
+  sfuSocket.on("existingProducers", (msg) => {
+    msg.producers.forEach( p => consumeProducer(p.producerId));
+  });
 
-      case "LEAVE":
-        users = msg.currentUsers || [];
-        renderUsers();
-        ui.removePeer(msg.from);
-        ui.addChatMessage(null, `${msg.from}님이 퇴장했습니다.`,"system");
-        break;
+  sfuSocket.on("transportCreated", async (msg) => {
+    await createTransport(msg.data);
+  });
+
+  sfuSocket.on("transportConnected", (msg) => console.log("transport connected"));
+
+  sfuSocket.on("produced", (msg) => {
+    console.log("produced: ", msg.producerId);
+    // mediasoup-client에 서버에서 생성된 ID 전달
+    if (pendingProduceCallback) {
+    pendingProduceCallback({ id: msg.producerId });
+    pendingProduceCallback = null;
     }
-  }
+  });
 
-  springSocket.onclose = (e) => {
-    // 사용자가 직접 나간게 아니라면 재시도 지수백오프 형식
-    if(e.code !== 1000){
-      const delay = Math.min(Math.pow(2, reconnectAttempts) * 1000, 30000);
-      console.warn("시그널링 연결이 끊겼습니다. 재연결을 시도합니다.");
-      setTimeout(() => {
-        reconnectAttempts++;
-        initSpringSocket(roomId, userId);
-      }, delay);
+  sfuSocket.on("newProducer", async (msg) => {
+    console.log("newProducer ", msg.producerId);
+    await consumeProducer(msg.producerId);
+  });
+
+  sfuSocket.on("consume", async (msg) => {
+    console.log("consume : ", msg.data);
+    await handleConsume(msg.data);
+  });
+
+  sfuSocket.on("currentProducers", (msg) => {
+    console.log("currentProducers : ", msg.data);
+    // 상태 충돌로 인해 일부 요청이 무시(비동기 충돌)
+    (async () => {
+    for(const producerId of msg.data){
+        console.log("구독시작 : ", producerId);
+        await consumeProducer(producerId);
     }
-    console.log("ℹ️ SpringSocket 연결 종료:", e.code, e.reason);
-  };
+    })();
+  });
+
+  sfuSocket.on("producerClosed", (msg) => {
+    console.log("producerClosed: ", msg.producerId);
+    removeVideo(msg.producerId, currentUserId, true);
+  });
+
 }
 
 // 2. 새로고침/창 닫기 대응
@@ -166,85 +182,18 @@ window.addEventListener('beforeunload', () => {
         springSocket.onclose = null; 
         springSocket.close();
     }
-});
-
-function initSfuSocket(sfuUrl, roomId, userId, ticket){
-  sfuSocket = new WebSocket(`${sfuUrl}?roomId=${roomId}&userId=${userId}&token=${ticket}`);
-  sfuSocket.onopen = () => {
-    console.log("SFU 소켓 연결 성공!");
-    sfuSocket.send(JSON.stringify({
-      type: "joinRoom",
-      data: { // 👈 서버가 data.data를 원한다면 이렇게 감싸야 함
-        roomId: roomId,
-        userId: userId
-      }
-    }));
-  };
-
-  sfuSocket.onmessage = async (e) => {
-    const msg = JSON.parse(e.data);
-    
-    switch (msg.type) {
-      case "routerRtpCapabilities":
-        await loadDevice(msg.data);
-        break;
-
-      case "existingProducers":
-        msg.producers.forEach( p => consumeProducer(p.producerId));
-        break;
-
-      case "transportCreated":
-        await createTransport(msg.data);
-        break;
-
-      case "transportConnected":
-        console.log("transport connected");
-        break;
-
-      case "produced":
-        console.log("produced: ", msg.producerId);
-        // mediasoup-client에 서버에서 생성된 ID 전달
-        if (pendingProduceCallback) {
-          pendingProduceCallback({ id: msg.producerId });
-          pendingProduceCallback = null;
-        }
-        break;
-
-      case "newProducer":
-        console.log("newProducer ", msg.producerId);
-        await consumeProducer(msg.producerId);
-        break;
-
-      case "consume": // 서버에서 보내는 타입이 'consume'일 경우
-        console.log("consume : ", msg.data);
-        await handleConsume(msg.data);
-        break;
-
-      case "currentProducers": 
-        console.log("currentProducers : ", msg.data);
-        // 상태 충돌로 인해 일부 요청이 무시(비동기 충돌)
-        (async () => {
-          for(const producerId of msg.data){
-            console.log("구독시작 : ", producerId);
-            await consumeProducer(producerId);
-          }
-        })();
-        break;
-
-      case "producerClosed":
-        console.log("producerClosed: ", msg.producerId);
-        removeVideo(msg.producerId, currentUserId, true);
-        break;
-
+    // 추가: SFU 소켓도 깨끗하게 정리
+    if (sfuSocket) {
+        sfuSocket.onclose = null;
+        sfuSocket.close();
     }
-  };
-}
+});
 
 async function loadDevice(routerRtpCapabilities) {
   device = new mediasoupClient.Device();
   await device.load({ routerRtpCapabilities });
   // 송신용 트랜스포트 생성 요청
-  sfuSocket.send(JSON.stringify({ type: "createTransport" }));
+  sfuSocket.send("createTransport");
 }
 
 let transportCount = 0;
@@ -257,23 +206,22 @@ async function createTransport(data) {
     sendTransport = device.createSendTransport(data);
 
     sendTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
-      sfuSocket.send(JSON.stringify({
-        type: "connectTransport",
+      sfuSocket.send("connectTransport", {
         transportId: sendTransport.id,
         dtlsParameters
-      }));
+      });
       callback();
     });
 
     sendTransport.on("produce", ({ kind, rtpParameters, appData }, callback, errback) => {
       pendingProduceCallback = callback; // 서버 응답 'produced'를 기다림
-      sfuSocket.send(JSON.stringify({
+      sfuSocket.send("produce", {
         type: "produce",
         transportId: sendTransport.id,
         kind,
         rtpParameters,
         appData
-      }));
+      });
     });
 
     try{
@@ -317,7 +265,7 @@ async function createTransport(data) {
       // 그리드 영역에 내 영상 꽂기
       remoteVideos.appendChild(localBox);
 
-      window.localSteam = stream;
+      window.localStream = stream;
 
       const videoTrack = stream.getVideoTracks()[0];
       const audioTrack = stream.getAudioTracks()[0];
@@ -345,7 +293,7 @@ async function createTransport(data) {
       }
 
       // 송출 성공 후 수신용 트랜스포트 생성 요청
-      sfuSocket.send(JSON.stringify({ type: "createTransport" }));
+      sfuSocket.send("createTransport");
 
       }catch(err){
         console.error("미디어 장치를 불러오지 못했습니다:", err);
@@ -356,17 +304,14 @@ async function createTransport(data) {
     // 2. 수신용 트랜스포트
     recvTransport = device.createRecvTransport(data);
     recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
-      sfuSocket.send(JSON.stringify({
-        type: "connectTransport",
+      sfuSocket.send("connectTransport", {
         transportId: recvTransport.id,
         dtlsParameters
-      }));
+      });
       callback();
     });
     console.log("recvTransport ready");
-    sfuSocket.send(JSON.stringify({
-      type:"getProducers"
-    }));
+    sfuSocket.send("getProducers");
   }
 }
 
@@ -390,12 +335,11 @@ async function consumeProducer(producerId) {
   console.log("consumeProducer called recTransport : ",recvTransport);
   console.log("consumeProducer called recTransportId : ",recvTransport.id);
 
-  sfuSocket.send(JSON.stringify({
-    type: "consume",
+  sfuSocket.send("consume", {
     producerId,
     transportId: recvTransport.id, // transport.id가 아니라 recvTransport.id 입니다.
     rtpCapabilities: device.rtpCapabilities
-  }));
+  });
 }
 
 async function handleConsume(data) {
@@ -428,10 +372,9 @@ async function handleConsume(data) {
   }
 
   // 서버에서 paused를 보냈다면 resume 필수
-  sfuSocket.send(JSON.stringify({
-    type: "resumeConsumer",
+  sfuSocket.send("resumeConsumer", {
     data:{consumerId: consumer.id}
-  }));
+  });
   // 비디오가 멈춰있다면 서버에서 consumer.resume()을 호출했는지 확인
 }
 
@@ -452,11 +395,7 @@ shareBtn.onclick = async () => {
     console.log("화면 공유 종료됨");
     if(screenProducer){
       const screenProducerId = screenProducer.id;
-      sfuSocket.send(JSON.stringify({
-        type: "producerClosed",
-        producerId: screenProducerId
-      }));
-
+      sfuSocket.send("producerClosed", {producerId: screenProducerId});
       stopScreenShare();
       // 내 peerId와 isScreen=true를 전달하여 UI 삭제
       console.log("currentUserId :", currentUserId);
@@ -558,14 +497,11 @@ function renderUsers() {
 }
 
 function leaveRoom() {
-  springSocket.send(JSON.stringify({
-    type:"LEAVE",
-    roomId: roomId,
-    from: userId
-  }));
-
+  springSocket.send("LEAVE", {roomId: roomId, from: userId});
+  if(springSocket.springSocket){
+    springSocket.springSocket.onclose = null;
+  }
   springSocket.close();
-
   location.href = "/lobby";
 }
 
@@ -583,7 +519,7 @@ document.getElementById("leaveBtn").onclick = () =>{
 }
 
 document.getElementById("muteBtn").onclick = () => {
-  const audioTrack = localSteam.getAudioTracks()[0];
+  const audioTrack = localStream.getAudioTracks()[0];
   if(!audioTrack) return;
 
   // track 상태 반전
@@ -595,19 +531,18 @@ document.getElementById("muteBtn").onclick = () => {
   console.log(isMuted ? "🔇 마이크 끔" : "🎙️ 마이크 켬");
 
   // spring server로 상태 전송
-  springSocket.send(JSON.stringify({
-    type: "STATUS",
+  springSocket.send("STATUS", {
     roomId: roomId,
     from: userId,
     payload: {
       type: "audio",
       enabled: audioTrack.enabled // true면 켜짐, false면 꺼짐
     }
-  }));
+  });
 };
 
 document.getElementById("cameraBtn").onclick = () => {
-  const videoTrack = localSteam.getVideoTracks()[0];
+  const videoTrack = localStream.getVideoTracks()[0];
   if(!videoTrack) return;
   
   // track 상태 반전
@@ -619,13 +554,12 @@ document.getElementById("cameraBtn").onclick = () => {
   console.log(isOff ? "🚫 카메라 끔" : "📷 카메라 켬");
 
   // 3. Spring 서버로 상태 전송
-  springSocket.send(JSON.stringify({
-    type: "STATUS",
+  springSocket.send("STATUS",{
     roomId: roomId,
     from: userId,
     payload: {
       type: "video",
       enabled: videoTrack.enabled
     }
-  }));
+  });
 };
