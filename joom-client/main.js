@@ -67,7 +67,9 @@ async function startAndjoin() {
     console.error("입장실패 : ",err);
   }
 
-  // springSocket의 이벤트 리스너
+}
+
+// springSocket의 이벤트 리스너
   springSocket.on("JOIN", (msg) => {
     users = msg.currentUsers || [];
     window.userStatuses = msg.userStatuses || {};
@@ -108,17 +110,24 @@ async function startAndjoin() {
               micIcon.classList.toggle("muted", !enabled);
           } else if (type === "video") {
               // 카메라 아이콘 또는 비디오 오버레이 업데이트
-              const videoOffOverlay = remoteVideoContainer.querySelector(".video-off-overlay");
-              // videoOffOverlay.style.display = enabled ? "none" : "flex";
+              const video = remoteVideoContainer.querySelector("video");
+            if (video) {
+                video.style.display = enabled ? "block" : "none";
+                remoteVideoContainer.style.backgroundColor = enabled ? "transparent" : "#1a1a1a";
+            }
           }
       }
   });
 
   springSocket.on("LEAVE", (msg) => {
+    console.log("LEAVE 메시지 받음 : ", msg);
+    if (!users.includes(msg.from)) {
+        return; 
+    }
     users = msg.currentUsers || [];
-    ui.renderUsers();
     ui.removePeer(msg.from);
     ui.addChatMessage(null, `${msg.from}님이 퇴장했습니다.`,"system");
+    renderUsers();
   });
 
 
@@ -171,8 +180,6 @@ async function startAndjoin() {
     console.log("producerClosed: ", msg.producerId);
     removeVideo(msg.producerId, currentUserId, true);
   });
-
-}
 
 // 2. 새로고침/창 닫기 대응
 window.addEventListener('beforeunload', () => {
@@ -497,11 +504,12 @@ function renderUsers() {
 }
 
 function leaveRoom() {
+  console.log("방 나가기");
   springSocket.send("LEAVE", {roomId: roomId, from: userId});
   if(springSocket.springSocket){
     springSocket.springSocket.onclose = null;
   }
-  springSocket.close();
+  //springSocket.springSocket.close();
   location.href = "/lobby";
 }
 

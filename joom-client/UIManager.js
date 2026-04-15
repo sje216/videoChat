@@ -22,7 +22,12 @@ export default class UIManager{
             // 일반 비디오 재사용
             console.log(`[복구] 유저 ${peerId}의 기존 박스를 재사용합니다.`);
             const existing = videoBox.querySelector("video");
-            if (existing) existing.srcObject = stream;
+            if (existing) {
+                existing.srcObject = stream;
+                // 💡 카메라를 켰을 때 다시 보이도록 설정
+                existing.style.display = "block"; 
+                videoBox.style.backgroundColor = "transparent";
+            }
         }else{
             // [신규 모드] 박스가 없다면 새로 생성 (기존 로직 유지)
             this._createVideoBox(peerId, stream);
@@ -109,7 +114,8 @@ export default class UIManager{
 
         div.style.marginBottom  = "5px";
         div.style.fontSize      = "14px";
-        console.log("chat type: ",type);
+        console.log("addChatMessage chat type: ",type);
+        console.log("addChatMessage chat msg: ",msg);
 
         if(type === "system"){
             div.style.color     = "#888";
