@@ -1,6 +1,7 @@
 import * as mediasoupClient from "mediasoup-client";
 import UIManager from "./UIManager";
 import SocketManager from "./SocketManager";
+import ApiService from "./ApiService";
 
 let device, sendTransport, recvTransport;
 let audioProducer, videoProducer, screenProducer;
@@ -14,6 +15,7 @@ let userId                  = sessionStorage.getItem("myId");
 const ui                  = new UIManager();
 const springSocket        = new SocketManager("spring");
 const sfuSocket           = new SocketManager("sfu");
+const apiService          = new ApiService();
 const consumers           = new Map();
 const consumingProducers  = new Set();
 
@@ -46,12 +48,8 @@ async function startAndjoin() {
   currentUserId = userId;
 
   try{
-    const res = await fetch(`http://localhost:8080/api/rooms/${roomId}/access`, {
-      method: "POST",
-      headers: {"Content-type" : "application/json"},
-      body: JSON.stringify({userId})
-    });
-    const {sfuUrl, ticket } = await res.json();
+    const res = await apiService.getRoomAccess(roomId, userId);
+    const {sfuUrl, ticket } = res;
 
     // 관리/채팅 소켓
     const springUrl = `ws://localhost:8080/ws?roomId=${roomId}&userId=${userId}`;
@@ -439,20 +437,8 @@ async function sendChat(){
   if(!input.value) return;
 
   const roomId = roomInput.value;
-
   try{
-    
-    await fetch(`http://localhost:8080/api/chat/send`, {
-      method: "POST",
-      headers: {"Content-type" : "application/json"},
-      body: JSON.stringify({
-        type: "CHAT",
-        roomId: roomId,
-        userId: userId,
-        message: input.value
-      })
-    });
-
+    await apiService.sendChat(roomId, userId, input.value);
     input.value = "";
     console.log("채팅 전송 성공!");
   }catch(err){
@@ -462,33 +448,18 @@ async function sendChat(){
 }
 
 async function sendWhisper() {
-
   if(!selectedUser){
     alert('유저 선택해줘!');
     return;
   }
-
   const input = document.getElementById("chatInput");
   try{
-    
-    await fetch(`http://localhost:8080/api/chat/send`, {
-      method: "POST",
-      headers: {"Content-type" : "application/json"},
-      body: JSON.stringify({
-        type: "WHISPER",
-        roomId: roomId,
-        userId: currentUserId,
-        target: selectedUser,
-        message: input.value
-      })
-    });
-
+    await apiService.sendWhisper(roomId, currentUserId, selectedUser, input.value);
     input.value = "";
     console.log("채팅 전송 성공!");
   }catch(err){
     console.error("채팅 전송 실패 : ",err);
   }
-
 }
 
 function renderUsers() {
