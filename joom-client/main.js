@@ -1,9 +1,9 @@
 import * as mediasoupClient from "mediasoup-client";
-import UIManager from "./UIManager";
-import SocketManager from "./SocketManager";
-import ApiService from "./ApiService";
+import UIManager from "./ui/UIManager";
+import SocketManager from "./core/SocketManager";
+import ApiService from "./service/ApiService";
+import MediasoupHandler from "./core/MediasoupHandler";
 
-let device, sendTransport, recvTransport;
 let audioProducer, videoProducer, screenProducer;
 let users                   = [];
 let selectedUser            = null;
@@ -16,6 +16,7 @@ const ui                  = new UIManager();
 const springSocket        = new SocketManager("spring");
 const sfuSocket           = new SocketManager("sfu");
 const apiService          = new ApiService();
+const mediasoupHandler    = new MediasoupHandler(sfuSocket);
 const consumers           = new Map();
 const consumingProducers  = new Set();
 
@@ -90,7 +91,7 @@ async function startAndjoin() {
 
  springSocket.on("WHISPER", (msg) => {
   const whisperText = msg.payload? msg.payload.message : "메시지 내용 없음";
-  ui.addChatMessage(currentUserId, `[귓속말] ${msg.from}: ${msg.payload.message}`, "whisper");
+  ui.addChatMessage(currentUserId, `[귓속말] ${msg.from}: ${whisperText}`, "whisper");
  });
 
  springSocket.on("STATUS", (msg) => {
@@ -131,7 +132,7 @@ async function startAndjoin() {
 
   // sfuSocket의 이벤트 리스너
   sfuSocket.on("routerRtpCapabilities",async (msg) => {
-    await loadDevice(msg.data);
+    await mediasoupHandler.loadDevice(msg.data);
   });
 
   sfuSocket.on("existingProducers", (msg) => {
@@ -139,7 +140,7 @@ async function startAndjoin() {
   });
 
   sfuSocket.on("transportCreated", async (msg) => {
-    await createTransport(msg.data);
+     await createTransport(msg.data);
   });
 
   sfuSocket.on("transportConnected", (msg) => console.log("transport connected"));
@@ -167,10 +168,10 @@ async function startAndjoin() {
     console.log("currentProducers : ", msg.data);
     // 상태 충돌로 인해 일부 요청이 무시(비동기 충돌)
     (async () => {
-    for(const producerId of msg.data){
-        console.log("구독시작 : ", producerId);
-        await consumeProducer(producerId);
-    }
+      for(const producerId of msg.data){
+          console.log("구독시작 : ", producerId);
+          await consumeProducer(producerId);
+      }
     })();
   });
 
@@ -194,13 +195,6 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-async function loadDevice(routerRtpCapabilities) {
-  device = new mediasoupClient.Device();
-  await device.load({ routerRtpCapabilities });
-  // 송신용 트랜스포트 생성 요청
-  sfuSocket.send("createTransport");
-}
-
 let transportCount = 0;
 
 async function createTransport(data) {
@@ -208,25 +202,9 @@ async function createTransport(data) {
 
   if (transportCount === 1) {
     // 1. 송신용 트랜스포트
-    sendTransport = device.createSendTransport(data);
-
-    sendTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
-      sfuSocket.send("connectTransport", {
-        transportId: sendTransport.id,
-        dtlsParameters
-      });
-      callback();
-    });
-
-    sendTransport.on("produce", ({ kind, rtpParameters, appData }, callback, errback) => {
-      pendingProduceCallback = callback; // 서버 응답 'produced'를 기다림
-      sfuSocket.send("produce", {
-        type: "produce",
-        transportId: sendTransport.id,
-        kind,
-        rtpParameters,
-        appData
-      });
+    mediasoupHandler.setupSendTransport(data, (callback) => {
+      // 서버에서 'produced' 응답이 오면 callback을 호출하여 ID 전달
+      pendingProduceCallback = callback;
     });
 
     try{
@@ -235,65 +213,20 @@ async function createTransport(data) {
         video: { width: 640, height: 480 },
         audio: true 
       });
-      // 내 영상 박스 생성
-      const localBox =document.createElement("div");
-      localBox.id = "container-local";
-      localBox.className = "remote-video-box local-member";
-      localBox.setAttribute("data-peer-id", userId); // 내 ID도 부여
-
-      // 마이크 추가
-      const micIcon = document.createElement("div");
-      micIcon.className = "status-icon-mic";
-      micIcon.id = "local-mic-icon"; // 내 마이크 아이콘은 ID로 접근하기 쉽게 설정
-      micIcon.innerText = "🎙️";
-      micIcon.style.position = "absolute";
-      micIcon.style.top = "10px";
-      micIcon.style.right = "10px";
-      micIcon.style.zIndex = "10";
-
-      // 이름표 추가
-      const nameTag = document.createElement("div");
-      nameTag.className = "video-name-tag";
-      nameTag.innerText = "나";
-
-      localBox.appendChild(micIcon);
-      localBox.appendChild(nameTag);
-
-      const localVideo = document.createElement("video");
-      localVideo.srcObject = stream;
-      localVideo.autoplay = true;
-      localVideo.playsInline = true;
-      localVideo.muted = true; // 내소리는 나한테 안 들리게
-
-      localBox.appendChild(localVideo);
-
-      // 그리드 영역에 내 영상 꽂기
-      remoteVideos.appendChild(localBox);
-
+      // 내 영상 ui에 추가
+      ui._createLocalVideoBox(currentUserId, stream);
       window.localStream = stream;
 
       const videoTrack = stream.getVideoTracks()[0];
       const audioTrack = stream.getAudioTracks()[0];
 
       if(videoTrack){
-        videoProducer = await sendTransport.produce({
-          track: videoTrack,
-          appData: {type: "video"},
-          encodings: [
-            { rid: 'r0', maxBitrate: 100000, scaleResolutionDownBy: 4 }, // 저화질 (1/4 해상도)
-            { rid: 'r1', maxBitrate: 300000, scaleResolutionDownBy: 2 }, // 중화질 (1/2 해상도)
-            { rid: 'r2', maxBitrate: 900000, scaleResolutionDownBy: 1 }, // 고화질 (원본 해상도)
-          ],
-          codecOptions: { videoGoogleStartBitrate: 1000 }
-                });
+        videoProducer = await mediasoupHandler.produceTrack(videoTrack, "video");
         console.log("✅ Simulcast Producer 생성 완료!");
       }
 
       if(audioTrack){
-        audioProducer = await sendTransport.produce({
-          track: audioTrack,
-          appData: {type: "audio"}
-        });
+        audioProducer = await mediasoupHandler.produceTrack(audioTrack, "audio");
         console.log("오디오 송출 시작");
       }
 
@@ -307,16 +240,7 @@ async function createTransport(data) {
 
   } else {
     // 2. 수신용 트랜스포트
-    recvTransport = device.createRecvTransport(data);
-    recvTransport.on("connect", ({ dtlsParameters }, callback, errback) => {
-      sfuSocket.send("connectTransport", {
-        transportId: recvTransport.id,
-        dtlsParameters
-      });
-      callback();
-    });
-    console.log("recvTransport ready");
-    sfuSocket.send("getProducers");
+    mediasoupHandler.setupRecvTransport(data);
   }
 }
 
@@ -327,9 +251,8 @@ async function consumeProducer(producerId) {
     console.log("already consuming: ",producerId);
     return;
   }
-
   
-  if (!recvTransport) {
+  if (!mediasoupHandler.recvTransport) {
     console.log("Waiting for recvTransport...");
     setTimeout(() => consumeProducer(producerId), 500);
     return;
@@ -337,24 +260,18 @@ async function consumeProducer(producerId) {
   consumingProducers.add(producerId);
   console.log("consumeProducer called : ",producerId);
   console.log("consumeProducer consumingProducers : ",consumingProducers);
-  console.log("consumeProducer called recTransport : ",recvTransport);
-  console.log("consumeProducer called recTransportId : ",recvTransport.id);
+  console.log("consumeProducer mediasoupHandler.device.rtpCapabilities : ",mediasoupHandler.device.rtpCapabilities);
 
   sfuSocket.send("consume", {
     producerId,
-    transportId: recvTransport.id, // transport.id가 아니라 recvTransport.id 입니다.
-    rtpCapabilities: device.rtpCapabilities
+    transportId: mediasoupHandler.recvTransport.id, // transport.id가 아니라 recvTransport.id 입니다.
+    rtpCapabilities: mediasoupHandler.device.rtpCapabilities
   });
 }
 
 async function handleConsume(data) {
   // recvTransport 를 통해 로컬 consumer 생성
-  const consumer = await recvTransport.consume({
-    id: data.id,
-    producerId: data.producerId,
-    kind: data.kind,
-    rtpParameters: data.rtpParameters // 서버가 보내준 simulcast도 포함
-  });
+  const consumer = await mediasoupHandler.consume(data);
   consumers.set(data.id, consumer); // producerId -> consumerId로 변경
 
   // 미디어 스트림 생성 및 트랙 연결
@@ -391,7 +308,7 @@ shareBtn.onclick = async () => {
 
   const screenTrack = screenStream.getVideoTracks()[0];
 
-  screenProducer = await sendTransport.produce({
+  screenProducer = await mediasoupHandler.sendTransport.produce({
     track: screenTrack,
     appData: {type: "screen"}
   });

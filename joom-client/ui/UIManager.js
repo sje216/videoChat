@@ -86,6 +86,7 @@ export default class UIManager{
         try {
             const status = JSON.parse(window.userStatuses[peerId]);
             // mic 아이콘 업데이트
+            console.log("applyInitialStatus status : ",status);
             const micIcon = container.querySelector(".status-icon-mic");
             if(micIcon) {
             micIcon.innerText = status.audio ? "🎙️" : "🔇";
@@ -182,6 +183,44 @@ export default class UIManager{
         // 그리드에 박스 추가
         this.remoteVideos.appendChild(videoBox);
         return videoBox;
+    }
+
+    // 로컬 비디오 박스 생성 (내 영상)
+    _createLocalVideoBox(peerId, stream) {
+        const localBox       = document.createElement("div");
+        localBox.id          = "container-local";
+        localBox.className   = "remote-video-box local-member";
+        localBox.setAttribute("data-peer-id", peerId); // 내 ID도 부여
+
+        // 마이크 추가
+        const micIcon      = document.createElement("div");
+        micIcon.className  = "status-icon-mic";
+        micIcon.id         = "local-mic-icon"; // 내 마이크 아이콘은 ID로 접근하기 쉽게 설정
+        micIcon.innerText  = "🎙️";
+        micIcon.style.position = "absolute";
+        micIcon.style.top      = "10px";
+        micIcon.style.right    = "10px";
+        micIcon.style.zIndex   = "10";
+
+        // 이름표 추가
+        const nameTag     = document.createElement("div");
+        nameTag.className = "video-name-tag";
+        nameTag.innerText = "나";
+
+        localBox.appendChild(micIcon);
+        localBox.appendChild(nameTag);
+
+        const localVideo       = document.createElement("video");
+        localVideo.srcObject   = stream;
+        localVideo.autoplay    = true;
+        localVideo.playsInline = true;
+        localVideo.muted       = true; // 내소리는 나한테 안 들리게
+
+        localBox.appendChild(localVideo);
+
+        // 그리드 영역에 내 영상 꽂기
+        this.remoteVideos.appendChild(localBox);
+        return localBox;
     }
 
     // 내부 헬퍼: 화면 공유 박스 생성
