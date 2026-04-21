@@ -48,21 +48,21 @@ public class SignalingHandler extends TextWebSocketHandler {
                     removeTasks.remove(msg.getFrom());
                     log.info("사용자 {} 재연결됨. 삭제 예약 취소.", msg.getFrom());
                 }
-                roomService.join(msg.getRoomId(), msg.getFrom(), sessionId);
+                roomService.joinAsync(msg.getRoomId(), msg.getFrom(), sessionId);
                 break;
 
             case "STATUS":
-                roomService.handleStatus(msg);
+                roomService.handleStatusAsync(msg);
                 break;
 
             case "CHAT":
             case "WHISPER":
-                roomService.relay(msg);
+                roomService.relayAsync(msg);
                 break;
 
             case "LEAVE":
                 session.getAttributes().put("ALREADY_LEFT", true);
-                roomService.leave(msg.getRoomId(), msg.getFrom(), sessionId);
+                roomService.leaveAsync(msg.getRoomId(), msg.getFrom(), sessionId);
                 break;
         }
     }

@@ -36,6 +36,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     // JSON 처리를 위한 Jackson (보통 기본 포함)
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    // 스프링 부트 액추에이터 (상태 점검 및 지표 노출)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // 마이크로미터 프로메테우스 구현체
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
     // Lombok (편의용)
     annotationProcessor 'org.projectlombok:lombok'
 	compileOnly 'org.projectlombok:lombok'

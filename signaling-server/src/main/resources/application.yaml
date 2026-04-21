@@ -7,3 +7,16 @@ spring:
       host: localhost
       port: 6379
       database: 0
+      
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "prometheus, health, info" #prometheus 엔드포인트개방
+    endpoint:
+      heath:
+        show-details: always
+      metrics:
+        tags:
+          application: joom-backend #그라파나에서 식별할 앱이름
+

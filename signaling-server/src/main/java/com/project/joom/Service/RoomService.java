@@ -7,6 +7,7 @@ import com.project.joom.Repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -136,5 +137,30 @@ public class RoomService {
 
         // 다른 사용자에게 알림
         publishMsg(roomId, msg);
+    }
+
+    // 여기는 비동기 메서드들
+    @Async("signalingExecutor")
+    public void joinAsync(String roomId, String userId, String sessionId){
+        log.info("비동기 방 입장 처리 시작: 유저 {}", userId);
+        join(roomId, userId, sessionId);
+    }
+
+    @Async("signalingExecutor")
+    public void relayAsync(SignalMessage msg) {
+        log.info("비동기 방 msg 처리 시작: 메시지 {}", msg);
+        relay(msg);
+    }
+
+    @Async("signalingExecutor")
+    public void leaveAsync(String roomId, String userId, String sessionId){
+        log.info("비동기 방 퇴장 처리 시작: 유저 {}", userId);
+        leave(roomId, userId, sessionId);
+    }
+
+    @Async("signalingExecutor")
+    public void handleStatusAsync(SignalMessage msg) {
+        log.info("비동기 상태 업데이트 시작: 유저 {}", msg.getFrom());
+        handleStatus(msg); // 기존 Redis 업데이트 로직 호출
     }
 }
