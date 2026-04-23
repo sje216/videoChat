@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import {initMediasoup, getRouter} from "./mediasoup.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import client from "prom-client";
 
 // 현재 경로 찾기
 const __filename = fileURLToPath(import.meta.url);
@@ -20,12 +21,39 @@ const server = app.listen(3000, () =>
 
 const wss = new WebSocketServer({server});
 const rooms = new Map();
+// 모든 지표를 담을 레지스터 생성
+const register = new client.Registry();
+client.collectDefaultMetrics({ register }); // Node.js 기본 지표 수집 (Heap Memory, CPU, Event Loop Lag 등)
+// custom 지표 정의 (SFU에 특화된 지표 예시)
+const activeRoomsGauge = new client.Gauge({
+    name: "joom_sfu_active_rooms",// 지표 이름 (그라파나에서 검색할 이름)
+    help: "현재 활성화된 방의 수"
+});
+const activePeersGauge = new client.Gauge({
+    name: "joom_sfu_active_peers",// 지표 이름 (그라파나에서 검색할 이름)
+    help: "현재 활성화된 피어의 수"
+});
+register.registerMetric(activeRoomsGauge);
+register.registerMetric(activePeersGauge);
+
+// 5초 마다 현재 메모리에 있는 rooms, peers 수를 지표로 업데이트
+setInterval(() => {
+    activeRoomsGauge.set(rooms.size);
+    let peerCnt = 0;
+    rooms.forEach(room => {peerCnt += room.peers.size});
+    activePeersGauge.set(peerCnt);
+}, 5000);
+
+// Prometheus가 /metrics 엔드포인트로 수집하러 올 때 레지스터에 있는 모든 지표를 반환
+app.get('/metrics', async (req, res) => {
+    res.setHeader('Content-Type', register.contentType);
+    res.send(await register.metrics());
+});
+
 
 // ioredis는 자동연결
-// 발송
-const pub = new Redis();
-// 구독
-const sub = new Redis();
+const pub = new Redis(); // 발송
+const sub = new Redis(); // 구독
 
 // 삭제 대기
 const pendingSfuRemovals = new Map();
