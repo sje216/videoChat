@@ -1,7 +1,7 @@
 import Redis from "ioredis";
 import express, { json, raw } from "express";
 import { WebSocketServer } from "ws";
-import {initMediasoup, getRouter} from "./mediasoup.js";
+import {initMediasoup, createRouter} from "./mediasoup.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import client from "prom-client";
@@ -42,7 +42,7 @@ setInterval(() => {
     let peerCnt = 0;
     rooms.forEach(room => {peerCnt += room.peers.size});
     activePeersGauge.set(peerCnt);
-}, 5000);
+}, 10000);
 
 // Prometheus가 /metrics 엔드포인트로 수집하러 올 때 레지스터에 있는 모든 지표를 반환
 app.get('/metrics', async (req, res) => {
@@ -118,11 +118,12 @@ sub.on("message", (channel, message) => {
     });
 });
 
-function createRoom(roomId) {
+async function createRoom(roomId) {
     if(rooms.has(roomId)) return rooms.get(roomId);
 
+    const router = await createRouter();
     const room = {
-        router: getRouter(),
+        router: router,
         peers: new Map()
     };
     rooms.set(roomId, room);
@@ -162,20 +163,21 @@ async function handleMsg(ws, msg) {
         switch(type){
             case "joinRoom": {
                 console.log("joinRoom : ",data);
-                const room = createRoom(data.roomId);
+                const room = await createRoom(data.roomId);
                 room.peers.set(ws.id, {
                     id: ws.id,
                     ws: ws,
                     transports: new Map(),
                     producers: new Map(),
-                    consumers: new Map()
+                    consumers: new Map(),
+                    rtpCapabilities: data.rtpCapabilities // 클라이언트의 caps
                 });
 
                 ws.send(JSON.stringify({
                     type: "routerRtpCapabilities",
                     data: room.router.rtpCapabilities
                 }));
-                
+                console.log(`[SFU] 유저 ${ws.id}가 방 ${data.roomId}에 참여 완료`);
                 const producers = [];
 
                 room.peers.forEach(p => {
@@ -455,6 +457,7 @@ wss.on("connection", async (ws, req) => {
             console.log(`[SFU] 유저 ${ws.id} 자원 정리 완료.`);
 
             if(room.peers.size === 0){
+                room.router.close();
                 rooms.delete(ws.roomId);
                 console.log(`[SFU] 빈 방 삭제: ${ws.roomId}`);
             }
