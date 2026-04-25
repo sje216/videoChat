@@ -457,11 +457,12 @@ wss.on("connection", async (ws, req) => {
             console.log(`[SFU] 유저 ${ws.id} 자원 정리 완료.`);
 
             if(room.peers.size === 0){
+                console.log(`[SFU] 방 ${ws.roomId}에 유저가 없어 라우터를 종료합니다.`);
                 room.router.close();
                 rooms.delete(ws.roomId);
                 console.log(`[SFU] 빈 방 삭제: ${ws.roomId}`);
             }
-        }, 30000);
+        }, 10000);
 
         pendingSfuRemovals.set(ws.id, timeoutId);
 

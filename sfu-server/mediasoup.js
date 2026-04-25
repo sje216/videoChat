@@ -1,7 +1,13 @@
 import mediasoup from "mediasoup";
 import os from "os";
+import client from "prom-client";
 
-const workers       = [];
+const workers           = [];
+const workerLoadGauge   = new client.Gauge({
+    name: "joom_sfu_worker_load",
+    help: "워커별 활성 라우터 수",
+    labelNames: ["worker_pid"] // PID별로 구분해 그래프 그리기 위함
+});
 
 // mediasoup 워커를 초기화하는 함수
 //  CPU 코어 수에 따라 워커를 생성
@@ -75,12 +81,19 @@ export async function createRouter(){
     });
     // 생성된 라우터를 할당된 워커의 activeRouterCount에 반영
     bestWorker.activeRouterCount++;
+    // Prometheus Gauge 업데이트
+    workerLoadGauge.set({ worker_pid: bestWorker.mediasoupWorker.pid }, bestWorker.activeRouterCount);
 
     // 라우터가 닫힐때 카운트 감소
     router.on("close", () => {
-        bestWorker.activeRouterCount--;
+        bestWorker.activeRouterCount = Math.max(0, bestWorker.activeRouterCount - 1); // 음수 방지
+        // Prometheus Gauge 업데이트
+        workerLoadGauge.set({ worker_pid: bestWorker.mediasoupWorker.pid }, bestWorker.activeRouterCount);
         console.log(`[SFU] 라우터 종료 (PID: ${bestWorker.mediasoupWorker.pid}, 현재 라우터 수: ${bestWorker.activeRouterCount})`);
     }); 
 
     return router;
 }
+
+// prometheus에서 워커별 라우터 수를 모니터링할 수 있도록 Gauge 객체를 export
+export { workerLoadGauge };
