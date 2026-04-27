@@ -9,6 +9,18 @@ const workerLoadGauge   = new client.Gauge({
     labelNames: ["worker_pid"] // PID별로 구분해 그래프 그리기 위함
 });
 
+//  값 업데이트 로직 : 주기적으로 워커별 활성 라우터 수를 Gauge에 반영
+function updateMetrics() {
+    workers.forEach((workerEntry, index) => {
+        workerLoadGauge.set(
+            { worker_pid : `worker-${index}` },
+            workerEntry.activeRouterCount
+        );
+    }); 
+}
+
+setInterval(updateMetrics, 5000); // 5초마다 업데이트
+
 // mediasoup 워커를 초기화하는 함수
 //  CPU 코어 수에 따라 워커를 생성
 export async function initMediasoup(){

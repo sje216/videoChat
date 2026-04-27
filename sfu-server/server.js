@@ -1,7 +1,7 @@
 import Redis from "ioredis";
 import express, { json, raw } from "express";
 import { WebSocketServer } from "ws";
-import {initMediasoup, createRouter} from "./mediasoup.js";
+import {initMediasoup, createRouter, workerLoadGauge} from "./mediasoup.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import client from "prom-client";
@@ -35,6 +35,7 @@ const activePeersGauge = new client.Gauge({
 });
 register.registerMetric(activeRoomsGauge);
 register.registerMetric(activePeersGauge);
+register.registerMetric(workerLoadGauge);
 
 // 5초 마다 현재 메모리에 있는 rooms, peers 수를 지표로 업데이트
 setInterval(() => {
