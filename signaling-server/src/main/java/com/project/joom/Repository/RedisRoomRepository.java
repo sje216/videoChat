@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Repository
 @RequiredArgsConstructor
@@ -19,7 +20,10 @@ public class RedisRoomRepository implements RoomRepository {
 
     @Override
     public void addUser(String roomId, String userId, String sessionId) {
-        redisTemplate.opsForHash().put(getRoomKey(roomId), userId, sessionId);
+        String key = getRoomKey(roomId);
+        redisTemplate.opsForHash().put(key, userId, sessionId);
+        // 방 전체 키에 TTL 설정 유저가 활동시 갱신됨
+        redisTemplate.expire(key, 60, TimeUnit.SECONDS);
     }
 
     @Override

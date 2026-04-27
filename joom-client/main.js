@@ -66,6 +66,8 @@ async function startAndjoin() {
     console.error("입장실패 : ",err);
   }
 
+  startHeartbeat();
+
 }
 
 // springSocket의 이벤트 리스너
@@ -194,6 +196,18 @@ window.addEventListener('beforeunload', () => {
         sfuSocket.close();
     }
 });
+
+function startHeartbeat() {
+  setInterval(() => {
+      console.log("Heartbeat 시작");
+        if (springSocket.socket && springSocket.socket.readyState === WebSocket.OPEN) {
+            springSocket.send("HEARTBEAT", {
+                roomId: roomId,
+                userId: currentUserId
+            });
+        }
+    }, 20000); // 20초마다 heartbeat 전송
+}
 
 let transportCount = 0;
 
@@ -394,10 +408,10 @@ function renderUsers() {
 function leaveRoom() {
   console.log("방 나가기");
   springSocket.send("LEAVE", {roomId: roomId, from: userId});
-  if(springSocket.springSocket){
-    springSocket.springSocket.onclose = null;
+  if(springSocket.socket){
+    springSocket.socket.onclose = null;
   }
-  //springSocket.springSocket.close();
+  //springSocket.socket.close();
   location.href = "/lobby";
 }
 

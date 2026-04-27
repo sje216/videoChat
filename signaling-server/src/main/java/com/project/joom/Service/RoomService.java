@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -162,5 +163,11 @@ public class RoomService {
     public void handleStatusAsync(SignalMessage msg) {
         log.info("비동기 상태 업데이트 시작: 유저 {}", msg.getFrom());
         handleStatus(msg); // 기존 Redis 업데이트 로직 호출
+    }
+
+    // heartbeat 갱신 메서드
+    public void refreshState(String roomId) {
+        redisTemplate.expire("room:" +roomId + ":users", 60, TimeUnit.SECONDS);
+        redisTemplate.expire("room:"+roomId+":status", 60, TimeUnit.SECONDS);
     }
 }

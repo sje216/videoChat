@@ -73,6 +73,10 @@ export default class SocketManager {
      */
     _handleMessage(e) {
         try {
+            if (e.data === "pong") {
+                console.log("🏓 Heartbeat received: pong");
+                return; 
+            }
             const msg       = JSON.parse(e.data);
             const type      = msg.type || (msg.method);
             const callback  = this.callbacks.get(type);

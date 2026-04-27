@@ -51,6 +51,12 @@ public class SignalingHandler extends TextWebSocketHandler {
                 roomService.joinAsync(msg.getRoomId(), msg.getFrom(), sessionId);
                 break;
 
+            case "HEARTBEAT":
+                roomService.refreshState(msg.getRoomId());
+                // server도 응답을 주어 연결이 살아있음을 클라이언트에 알림
+                session.sendMessage(new TextMessage("pong"));
+                break;
+
             case "STATUS":
                 roomService.handleStatusAsync(msg);
                 break;
