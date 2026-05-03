@@ -35,8 +35,11 @@ export async function initMediasoup(){
         });
 
         worker.on("died", () => {
-            console.error("mediasoup died");
-            process.exit(1);
+            console.error(`[SFU] mediasoup Worker(PID: ${worker.pid})가 비정상 종료되었습니다.`);
+            // 심각한 에러이므로 2초 후 프로세스 종료 (PM2나 Docker가 자동으로 재시작하도록)
+            setTimeout(() => {
+                process.exit(1);
+            }, 2000);
         });
 
         // 워커 객체와 함께 현재 할당된 라우터 수 관리할 커스텀 속성 추가
