@@ -90,4 +90,34 @@ export default class MediasoupHandler {
       });
     }
 
+    /**
+     * 트랜스포트 연결 상태 모니터링 및 ice restart 로직
+     * @param {mediasoupClient.Transport} transport
+     * @param {string} type "send" 또는 "recv"
+     * @param {string} roomId 방 ID (재연결 시 필요)
+     */
+    setupTransportMonitoring(transport, type, roomId) {
+      transport.on("connectionstatechange", async (state) => {
+        console.log(`${type} transport connection state:`, state);
+        if(state === "failed") {
+          console.warn(`${type} transport 연결 실패, 재시도 중...`);
+
+          try {
+            // SFU 서버에 신규 ice 파라미터 요청
+            this.sfuSocket.send("restartIce", {
+              transportId: transport.id,
+              type: type, 
+              roomId: roomId
+            });
+            console.log(`[${type}] 서버에 ICE Restart 요청 완료`);
+          }
+          catch (error) {
+            console.error(`[${type}] ICE Restart 실패:`, error);
+          }
+
+        }
+      });
+    }
+
+
 }

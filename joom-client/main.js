@@ -182,6 +182,22 @@ async function startAndjoin() {
     removeVideo(msg.producerId, currentUserId, true);
   });
 
+  sfuSocket.on("iceRestarted", async (msg) => {
+    console.log("ICE Restarted: ", msg.transportId);
+    try {
+      // 재연결이 필요한 트랜스포트인지 확인 후 restartIce() 호출
+      if(mediasoupHandler.sendTransport && mediasoupHandler.sendTransport.id === msg.transportId){
+        await mediasoupHandler.sendTransport.restartIce({ iceParameters: msg.iceParameters });
+        console.log("✅ Send Transport ICE restart 성공!");
+      } else if(mediasoupHandler.recvTransport && mediasoupHandler.recvTransport.id === msg.transportId){
+        await mediasoupHandler.recvTransport.restartIce({ iceParameters: msg.iceParameters });
+        console.log("✅ Recv Transport ICE restart 성공!");
+      }
+    } catch (err) {
+      console.error("❌ Transport restartIce 적용 실패:", err);
+    }
+  });
+
 // 2. 새로고침/창 닫기 대응
 window.addEventListener('beforeunload', () => {
     // 새로고침 시에는 '재연결' 로직을 태우지 않고 그냥 닫기만 함
@@ -220,6 +236,15 @@ async function createTransport(data) {
       // 서버에서 'produced' 응답이 오면 callback을 호출하여 ID 전달
       pendingProduceCallback = callback;
     });
+    if(mediasoupHandler.sendTransport){
+      console.log("송신용 트랜스포트 생성 완료!");
+      mediasoupHandler.setupTransportMonitoring(
+        mediasoupHandler.sendTransport,
+        "send",
+        roomId
+      );
+      console.log("송신용 트랜스포트 모니터링 생성 완료!");
+    }
 
     try{
       console.log("카메라/마이크 권한 요청 중...");
@@ -255,6 +280,14 @@ async function createTransport(data) {
   } else {
     // 2. 수신용 트랜스포트
     mediasoupHandler.setupRecvTransport(data);
+    if (mediasoupHandler.recvTransport) {
+      mediasoupHandler.setupTransportMonitoring(
+        mediasoupHandler.recvTransport, 
+        'recv', 
+        roomId
+      );
+      console.log("수신용 트랜스포트 모니터링 생성 완료!");
+    }
   }
 }
 

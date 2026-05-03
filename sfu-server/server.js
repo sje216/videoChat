@@ -377,6 +377,31 @@ async function handleMsg(ws, msg) {
                 break;
             }
 
+            // ice restart
+            case "restartIce": {
+                const room = rooms.get(ws.roomId);
+                if(!room) return;
+
+                // 해당 유저의 transport 찾아서 새로운 iceParameters 생성 후 클라이언트에 전달
+                let targetTransport;
+                for(const peer of room.peers.values()){
+                    targetTransport = peer.transports.get(data.transportId);
+                    if(targetTransport) break;
+                }   
+
+                if(!targetTransport) return;
+                const iceParameters = await targetTransport.restartIce();
+                // 클라이언트에 새로운 iceParameters 전달
+                ws.send(JSON.stringify({
+                    type: "iceRestarted",
+                    data: {
+                        transportId: data.transportId,
+                        iceParameters: iceParameters
+                    }
+                }));
+                break;
+            }
+
         }
     }catch(err){
         console.error("메시지 처리 중 에러 발생:", err);
