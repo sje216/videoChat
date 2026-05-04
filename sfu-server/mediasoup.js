@@ -36,6 +36,8 @@ export async function initMediasoup(){
 
         worker.on("died", () => {
             console.error(`[SFU] mediasoup Worker(PID: ${worker.pid})가 비정상 종료되었습니다.`);
+            // 지표에 반영 0으로 설정해 대시보드에서 하락 감지
+            workerLoadGauge.set({ worker_pid: worker.pid }, 0);
             // 심각한 에러이므로 2초 후 프로세스 종료 (PM2나 Docker가 자동으로 재시작하도록)
             setTimeout(() => {
                 process.exit(1);

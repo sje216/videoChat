@@ -33,16 +33,36 @@ const activePeersGauge = new client.Gauge({
     name: "joom_sfu_active_peers",// 지표 이름 (그라파나에서 검색할 이름)
     help: "현재 활성화된 피어의 수"
 });
+const activeProducersGauge = new client.Gauge({
+    name: "joom_sfu_active_producers",// 지표 이름 (그라파나에서 검색할 이름)
+    help: "현재 활성화된 Producer의 수"
+});
+const activeConsumersGauge = new client.Gauge({
+    name: "joom_sfu_active_consumers",// 지표 이름 (그라파나에서 검색할 이름)
+    help: "현재 활성화된 Consumer의 수"
+});
 register.registerMetric(activeRoomsGauge);
 register.registerMetric(activePeersGauge);
+register.registerMetric(activeProducersGauge);
+register.registerMetric(activeConsumersGauge);
 register.registerMetric(workerLoadGauge);
 
-// 5초 마다 현재 메모리에 있는 rooms, peers 수를 지표로 업데이트
+// 10초 마다 현재 메모리에 있는 rooms, peers 수를 지표로 업데이트
 setInterval(() => {
     activeRoomsGauge.set(rooms.size);
     let peerCnt = 0;
-    rooms.forEach(room => {peerCnt += room.peers.size});
+    let prodCnt = 0;
+    let consCnt = 0;
+    rooms.forEach(room => {
+        peerCnt     += room.peers.size;
+        room.peers.forEach(peer => {
+            prodCnt += peer.producers.size;
+            consCnt += peer.consumers.size;
+        });
+    });
     activePeersGauge.set(peerCnt);
+    activeProducersGauge.set(prodCnt);
+    activeConsumersGauge.set(consCnt);
 }, 10000);
 
 // Prometheus가 /metrics 엔드포인트로 수집하러 올 때 레지스터에 있는 모든 지표를 반환
@@ -503,3 +523,18 @@ wss.on("connection", async (ws, req) => {
     });
 
 });
+
+// 새로운 연결 차단 및 기존 자원 정리를 위한 종료 핸들러
+const cleanUpBeforeExit = async () => {
+    console.log("서버 종료 중... 모든 라우터와 연결된 리소스 정리");
+    for(const [roomId, room] of rooms) {
+        room.router.close();
+    }
+    await pub.quit();
+    await sub.quit();
+    process.exit(0);
+};
+
+// OS가 보내는 종료 신호(SIGTERM, SIGINT)를 가로채서 위 함수 실행
+process.on('SIGTERM', cleanUpBeforeExit); // 배포 도구(PM2, Docker)가 종료를 요청할 때
+process.on('SIGINT', cleanUpBeforeExit);  // 터미널에서 Ctrl+C를 눌렀을 때
