@@ -21,6 +21,7 @@ jobs:
       # 빌드 권한 부여 및 빌드
       - name: Build with Gradle
         run: |
+          cd signaling-server
           chmod +x ./gradlew
           ./gradlew build -x test # 테스트는 일단 제외하고 빌드
           
