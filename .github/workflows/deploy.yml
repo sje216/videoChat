@@ -33,6 +33,14 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           script: |
+            # 서버에 접속 후 도커 이미지 빌드 및 실행 명령어
+            sudo docker stop signaling-server || true # 기존 컨테이너 중지 (존재하지 않으면 무시)
+            sudo docker rm signaling-server || true # 기존 컨테이너 제거 (존재하지
+            
+            # 프로젝트 폴더로 이동
+            mkdir -p ~/app
+            
+            # 로컬에서 빌드된 jar 파일을 서버로 복사 (scp 명령어 사용)
             echo "서버에 접속 성공!"
             # 여기에 도커 실행 명령어 입력
         
