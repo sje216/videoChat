@@ -33,6 +33,8 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
+          source: "signaling-server/build/libs/*.jar"
+          target: "~/app"
           script: |
             # 서버에 접속 후 도커 이미지 빌드 및 실행 명령어
             sudo docker stop signaling-server || true # 기존 컨테이너 중지 (존재하지 않으면 무시)
