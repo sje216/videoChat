@@ -1,54 +1,55 @@
-name: Java CI/CD with Docker
+name: Java CI/CD with docker
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: ["master","main"] # main 브랜치에 푸시하면 로봇 작동
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      # java env setting (JDK 17 기준)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    # 1. 빌드 (signaling-server 폴더로 이동해서 실행)
-    - name: Build with Gradle
-      run: |
-        cd signaling-server
-        chmod +x ./gradlew
-        ./gradlew build -x test
-
-    # 2. 빌드된 JAR 파일을 서버 1호기로 전송 (SCP)
-    - name: Copy JAR to EC2
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        source: "signaling-server/build/libs/*.jar"
-        target: "~/app"
-        strip_components: 3
-
-    # 3. 서버 1호기에서 도커로 실행 (SSH)
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        script: |
-          sudo docker stop signaling-server || true
-          sudo docker rm signaling-server || true
-          cd ~/app
-          # 가장 가벼운 자바 이미지로 실행
-          sudo docker run -d --name signaling-server \
+      # 빌드 권한 부여 및 빌드
+      - name: Build with Gradle
+        run: |
+          cd signaling-server
+          chmod +x ./gradlew
+          ./gradlew build -x test # 테스트는 일단 제외하고 빌드
+          
+      # docker 이미지 빌드 및 서버 전송
+      # 서버에 접속해 실행하는 명령어
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with: 
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          source: "signaling-server/build/libs/*.jar"
+          target: "~/app"
+          script: |
+            # 서버에 접속 후 도커 이미지 빌드 및 실행 명령어
+            sudo docker stop signaling-server || true # 기존 컨테이너 중지 (존재하지 않으면 무시)
+            sudo docker rm signaling-server || true # 기존 컨테이너 제거 (존재하지
+            
+            # 프로젝트 폴더로 이동
+            cd ~/app
+            
+            # 로컬에서 빌드된 jar 파일을 서버로 복사 (scp 명령어 사용)
+            sudo docker run -d --name signaling-server \
             -p 8080:8080 \
+            --network bridge \
             -v $(pwd):/app \
             openjdk:17-jdk-slim \
             java -jar /app/*.jar
+            echo "서버에 접속 성공!"
+            # 여기에 도커 실행 명령어 입력
+        
