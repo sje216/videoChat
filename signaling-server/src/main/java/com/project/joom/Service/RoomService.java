@@ -170,4 +170,18 @@ public class RoomService {
         redisTemplate.expire("room:" +roomId + ":users", 60, TimeUnit.SECONDS);
         redisTemplate.expire("room:"+roomId+":status", 60, TimeUnit.SECONDS);
     }
+
+    // SFU 위치 조회 및 안내
+    public String getSfuUrlForRoom(String roomId){
+        String mappingKey = "room:mapping:" + roomId;
+        String sfuUrl     = (String) redisTemplate.opsForValue().get(mappingKey);
+        // 할당된 SFU가 없다면 기본 SFU 주소를 반환하거나,
+        // 로드밸런싱 로직을 통해 새 SFU를 지정할 수 있습니다.
+//        if (sfuUrl == null) {
+//            return "ws://YOUR_DEFAULT_SFU_IP:3000";
+//        }
+
+        return sfuUrl;
+    }
+
 }

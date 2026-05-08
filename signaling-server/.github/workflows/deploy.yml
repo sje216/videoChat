@@ -1,0 +1,38 @@
+name: Java CI/CD with docker
+
+on:
+  push:
+    branches: ["main"] # main 브랜치에 푸시하면 로봇 작동
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # java env setting (JDK 17 기준)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 빌드 권한 부여 및 빌드
+      - name: Build with Gradle
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -x test # 테스트는 일단 제외하고 빌드
+          
+      # docker 이미지 빌드 및 서버 전송
+      # 서버에 접속해 실행하는 명령어
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with: 
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            echo "서버에 접속 성공!"
+            # 여기에 도커 실행 명령어 입력
+        

@@ -139,14 +139,23 @@ sub.on("message", (channel, message) => {
     });
 });
 
+// 서버 실행 시 환경변수 SFU_URL이 없으면 로컬 주소 사용(개발용)
+const MY_SFU_URL  = process.env.SFU_URL || "ws://localhost:3000";
+
 async function createRoom(roomId) {
-    if(rooms.has(roomId)) return rooms.get(roomId);
+    if(rooms.has(roomId)) {
+        // 이미 방이 있다면 TTL만 갱신
+        await pub.expire(`room:mapping:${roomId}`, 3600); // 방이 이미 존재하면 Redis 매핑 정보의 TTL을 갱신
+        return rooms.get(roomId);
+    }
 
     const router = await createRouter();
     const room = {
         router: router,
         peers: new Map()
     };
+    // Redis에 "이 방은 나의 URL에 연결되어 있음"을 저장
+    await pub.set(`room:mapping:${roomId}`, MY_SFU_URL, "EX", 3600); 
     rooms.set(roomId, room);
     return room;
 }
