@@ -39,9 +39,15 @@ jobs:
             sudo docker rm signaling-server || true # 기존 컨테이너 제거 (존재하지
             
             # 프로젝트 폴더로 이동
-            mkdir -p ~/app
+            cd ~/app
             
             # 로컬에서 빌드된 jar 파일을 서버로 복사 (scp 명령어 사용)
+            sudo docker run -d --name signaling-server \
+            -p 8080:8080 \
+            --network bridge \
+            -v $(pwd):/app \
+            openjdk:17-jdk-slim \
+            java -jar /app/*.jar
             echo "서버에 접속 성공!"
             # 여기에 도커 실행 명령어 입력
         
