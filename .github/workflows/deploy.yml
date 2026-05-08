@@ -2,7 +2,7 @@ name: Java CI/CD with docker
 
 on:
   push:
-    branches: ["main"] # main 브랜치에 푸시하면 로봇 작동
+    branches: ["master","main"] # main 브랜치에 푸시하면 로봇 작동
 
 jobs:
   build-and-deploy:
