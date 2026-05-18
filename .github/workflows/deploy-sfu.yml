@@ -24,6 +24,7 @@ jobs:
       # docker 이미지 빌드 및 서버 전송
       - name: Build and Push Docker Image
         run: |
+          cd sfu-server
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
 
@@ -41,11 +42,10 @@ jobs:
             docker rm joom-sfu || true
 
             # 최신 이미지 다운로드 후 3000 포트로 실행
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
             docker run -d --name joom-sfu \
-            --net=host \
-            --restart always \
-            -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
-            -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            -e ANNOUNCED_IP=${{ secrets.EC2_SFU_HOST }} \
+              --net=host \
+              --restart always \
+              -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
+              -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+              -e ANNOUNCED_IP=${{ secrets.EC2_SFU_HOST }} \
               ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
