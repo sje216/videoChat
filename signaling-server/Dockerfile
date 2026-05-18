@@ -1,4 +1,4 @@
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-alpine
 # 빌드시 생성되는 jar파일 위치 지정
 ARG JAR_FILE=build/libs/*.jar
 # jar파일을 컨테이너 내부로 복사
