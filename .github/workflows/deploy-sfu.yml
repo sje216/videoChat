@@ -31,6 +31,7 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with: 
+          context: ./sfu-server
           host: ${{ secrets.EC2_SFU_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
