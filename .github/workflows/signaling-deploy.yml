@@ -62,10 +62,9 @@ jobs:
 
             # 최신 이미지 다운로드 후 8081 포트로 실행
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
-            docker run -d --name signaling-server \
-              -p 8081:8080 \
-              --restart always \
-              -e SPRING_REDIS_HOST=${{ secrets.REDIS_HOST }} \
-              -e SPRING_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
-        
+            docker run -d --name joom-signaling-8080 \
+            --net=host \
+            --restart always \
+            -e SPRING_REDIS_HOST=127.0.0.1 \
+            -e SPRING_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/joom-signaling:latest
