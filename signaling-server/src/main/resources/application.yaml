@@ -5,7 +5,7 @@ spring:
   data:
     redis:
       # 📌 환경 변수가 들어오면 그 값을 쓰고, 없으면 기본값으로 localhost를 사용합니다.
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      host: ${SPRING_DATA_REDIS_HOST:172.17.0.1}
       port: ${SPRING_DATA_REDIS_PORT:6379}
       database: 0
       

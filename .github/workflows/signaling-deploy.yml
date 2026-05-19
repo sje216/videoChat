@@ -59,6 +59,8 @@ jobs:
            # 1. 기존 컨테이너가 있으면 멈추고 삭제 (이름 통일)
             docker stop joom-signaling-8080 || true
             docker rm joom-signaling-8080 || true
+            docker stop signaling-server || true
+            docker rm signaling-server || true
             
             # 2. 기존의 쓸모없는 이미지 청소 (용량 확보)
             docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest || true
@@ -70,6 +72,7 @@ jobs:
             docker run -d --name joom-signaling-8080 \
             -p 8080:8080 \
             --restart always \
-            -e SPRING_DATA_REDIS_HOST=127.17.0.1 \
-            -e SPRING_DATA_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest \
+            --Dspring.data.redis.host=172.17.0.1 \
+            --Dspring.data.redis.password=${{ secrets.REDIS_PASSWORD }} \
+            --Dspring.data.redis.port=6379
