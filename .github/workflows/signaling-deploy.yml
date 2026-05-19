@@ -57,8 +57,6 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
            # 1. 기존 컨테이너가 있으면 멈추고 삭제 (이름 통일)
-            docker stop signaling-server || true
-            docker rm signaling-server || true
             docker stop joom-signaling-8080 || true
             docker rm joom-signaling-8080 || true
             
