@@ -56,15 +56,20 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-           # 기존 8081 컨테이너가 있으면 멈추고 삭제 (Nginx 역프록시가 8081을 바라보고 있음)
-            docker stop signaling-server || true
-            docker rm signaling-server || true
+           # 1. 기존 컨테이너가 있으면 멈추고 삭제 (이름 통일)
+            docker stop joom-signaling-8080 || true
+            docker rm joom-signaling-8080 || true
+            
+            # 2. 기존의 쓸모없는 이미지 청소 (용량 확보)
+            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest || true
 
-            # 최신 이미지 다운로드 후 8081 포트로 실행
+            # 3. 최신 이미지 다운로드
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
+
+            # 4. 📌 올바른 환경 변수명과 올바른 이미지 이름으로 실행
             docker run -d --name joom-signaling-8080 \
             --net=host \
             --restart always \
-            -e SPRING_REDIS_HOST=127.0.0.1 \
-            -e SPRING_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/joom-signaling:latest
+            -e SPRING_DATA_REDIS_HOST=127.0.0.1 \
+            -e SPRING_DATA_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
