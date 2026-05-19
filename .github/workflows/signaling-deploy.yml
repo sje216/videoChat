@@ -68,7 +68,7 @@ jobs:
 
             # 4. 📌 올바른 환경 변수명과 올바른 이미지 이름으로 실행
             docker run -d --name joom-signaling-8080 \
-            --net=host \
+            -p 8080:8080 \
             --restart always \
             -e SPRING_DATA_REDIS_HOST=${{ secrets.REDIS_HOST }} \
             -e SPRING_DATA_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
