@@ -71,10 +71,15 @@ app.get('/metrics', async (req, res) => {
     res.send(await register.metrics());
 });
 
-
+const redisConfig = {
+    host: process.env.REDIS_HOST || "127.0.0.1",
+    port: parseInt(process.env.REDIS_PORT || "6379", 10),
+    password: process.env.REDIS_PASSWORD || undefined
+};
+console.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}`);
 // ioredis는 자동연결
-const pub = new Redis(); // 발송
-const sub = new Redis(); // 구독
+const pub = new Redis(redisConfig); // 발송
+const sub = new Redis(redisConfig); // 구독
 
 // 삭제 대기
 const pendingSfuRemovals = new Map();
