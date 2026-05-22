@@ -48,9 +48,8 @@ jobs:
 
             # 최신 이미지 다운로드 후 3000 포트로 실행
             docker run -d --name joom-sfu \
-              --net=host \
+              --network host \
               --restart always \
               -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
-              -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
               -e ANNOUNCED_IP=${{ secrets.EC2_SFU_HOST }} \
               ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
