@@ -14,7 +14,6 @@ COPY sfu-server/package*.json ./sfu-server/
 RUN cd sfu-server && npm install
 
 # 4단계: 소스코드 및 클라이언트 파일 전체 복사
-COPY sfu-server ./sfu-server
 COPY joom-client ./joom-client
 
 EXPOSE 3000 10000-20000/udp 10000-20000/tcp
