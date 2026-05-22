@@ -31,7 +31,7 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           cd sfu-server
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest .
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest -f ./Dockerfile ..
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
 
       # 서버에 접속해 실행하는 명령어
