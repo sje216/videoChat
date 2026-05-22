@@ -4,7 +4,8 @@ on:
   push:
     branches: ["master","main"] # main 브랜치에 푸시하면 로봇 작동
     paths:
-      - 'sfu-server/**' # sfu-server 폴더 내의 파일이 변경될 때만 작동
+      - 'sfu-server/**'
+      - 'joom-client/**' # sfu-server와 joom-client 폴더 내의 파일이 변경될 때만 작동
 
 jobs:
   build-and-deploy:
@@ -36,7 +37,6 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with: 
-          context: ./sfu-server
           host: ${{ secrets.EC2_SFU_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
