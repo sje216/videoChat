@@ -78,6 +78,5 @@ jobs:
             docker run -d --name joom-signaling-8080 \
             --network host \
             --restart always \
-            sje215/signaling-server:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest 
             

@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: joom
+
+  data:
+    redis:
+      host: localhost       # 로컬에서는 내 컴퓨터의 레디스 접속
+      port: 6379
+      database: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "prometheus, health, info"
+    endpoint:
+      health:
+        show-details: always

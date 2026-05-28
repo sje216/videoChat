@@ -1,0 +1,14 @@
+spring:
+  data:
+    redis:
+      # 운영 서버에서는 주입되는 환경 변수를 사용하고, 없으면 EC2 기본 브릿지 IP 사용
+      host: ${SPRING_DATA_REDIS_HOST:172.17.0.1}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD} # 운영용 레디스 비밀번호 추가
+      database: 0
+
+management:
+  endpoint:
+    metrics:
+      tags:
+        application: joom-backend-prod # 그라파나에서 운영 서버용으로 식별할 이름
