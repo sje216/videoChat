@@ -66,7 +66,7 @@ jobs:
             -p 6379:6379 \
             --restart always \
             redis:alpine \
-            redis-server --requirepass "${{ secrets.REDIS_PASSWORD }}" 
+            redis-server --requirepass "${{ secrets.REDIS_PASSWORD }}" --protected-mode no
 
             # 2. 기존의 쓸모없는 이미지 청소 (용량 확보)
             docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest || true
@@ -81,5 +81,6 @@ jobs:
             -e SPRING_DATA_REDIS_HOST=127.0.0.1 \
             -e SPRING_DATA_REDIS_PORT=6379 \
             -e SPRING_DATA_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest 
+            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest \
+            --server.port=3000
             

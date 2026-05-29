@@ -362,7 +362,7 @@ async function handleMsg(ws, msg) {
             case "resumeConsumer": {
                 const room = rooms.get(ws.roomId);
                 const peer = room.peers.get(ws.id);
-                const {consumerId} = data.data.consumerId; // 클라이언트가 보낸 아이디
+                const consumerId = data.data.consumerId; // 클라이언트가 보낸 아이디
 
                 // 내가 가지고 있는 consumer 중 해당 아이디 찾기
                 const consumer = peer.consumers.get(consumerId);
