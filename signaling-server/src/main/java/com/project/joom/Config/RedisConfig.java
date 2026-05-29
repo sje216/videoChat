@@ -1,9 +1,12 @@
 package com.project.joom.Config;
 
 import com.project.joom.Redis.RedisSubscriber;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
@@ -14,11 +17,27 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
+    // 💡 yaml에 파묻혀 있던 그릇의 값을 자바 코드로 땡겨오는 부분
+    @Value("${spring.data.redis.host:127.0.0.1}")
+    private String host;
+
+    @Value("${spring.data.redis.port:6379}")
+    private int port;
+
+    @Value("${spring.data.redis.password:}")
+    private String password;
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         // 기본적으로 localhost:6379로 연결됩니다.
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
+        
+        // 💡 비밀번호가 yaml이나 환경변수로 들어왔다면 세팅해줍니다.
+        if (password != null && !password.isEmpty()) {
+            config.setPassword(password);
+        }
         // 설정이 다르다면 LettuceConnectionFactory에 호스트와 포트를 지정하세요.
-        return new LettuceConnectionFactory();
+        return new LettuceConnectionFactory(config);
     }
 
     @Bean
