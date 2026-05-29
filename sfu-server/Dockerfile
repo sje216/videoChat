@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
 COPY sfu-server/package*.json ./sfu-server/
 RUN cd sfu-server && npm install
 
+COPY joom-client/package*.json ./joom-client/
+RUN cd joom-client && npm install
+
 # 4단계: 소스코드 및 클라이언트 파일 전체 복사
 COPY sfu-server ./sfu-server
 COPY joom-client ./joom-client

@@ -46,5 +46,6 @@ jobs:
               --restart always \
               -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
               -e ANNOUNCED_IP="${{ secrets.EC2_SFU_HOST }}" \
+              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
               -e REDIS_PORT="6379" \
               ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest

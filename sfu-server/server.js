@@ -74,7 +74,7 @@ app.get('/metrics', async (req, res) => {
 const redisConfig = {
     host: process.env.REDIS_HOST || "127.0.0.1",
     port: parseInt(process.env.REDIS_PORT || "6379", 10),
-    //password: process.env.REDIS_PASSWORD || undefined
+    password: process.env.REDIS_PASSWORD || undefined,
     maxRetriesPerRequest: null // 👈 연결이 지연될 때 튕기지 않도록 방어 코드 추가
 };
 console.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}`);
