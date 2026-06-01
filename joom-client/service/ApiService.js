@@ -1,5 +1,7 @@
 export default class ApiService{
-    constructor(baseUrl = "http://localhost:8080") {
+    // constructor(baseUrl = "http://localhost:8080") {
+    // fix: 배포 환경에서는 localhost 대신 상대 경로로 API 요청이 이루어져야 하므로, 기본값을 빈 문자열로 설정
+    constructor(baseUrl = "") {
         this.baseUrl = baseUrl;
     }
 

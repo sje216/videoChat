@@ -11,9 +11,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.static(path.join(__dirname, "../joom-client")));
+// app.use(express.static(path.join(__dirname, "../joom-client")));
+// joom-client 뒤에 반드시 /dist 를 붙여 배포용 빌드 파일을 읽어가도록 수정
+app.use(express.static(path.join(__dirname, "../joom-client/dist")));
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "../joom-client", "index.html"));
+    // res.sendFile(path.join(__dirname, "../joom-client", "index.html"));
+    res.sendFile(path.join(__dirname, "../joom-client/dist", "index.html"));
 });
 const server = app.listen(3000, () => 
     console.log("SFU server listening on 3000")
