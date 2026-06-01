@@ -1,5 +1,5 @@
 # 1단계: Node.js와 빌드 도구가 포함된 베이스 이미지 사용
-FROM node:18-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 
 # 2단계: mediasoup 빌드에 필요한 전제 패키지 설치
