@@ -20,6 +20,10 @@ RUN cd joom-client && npm install
 COPY sfu-server ./sfu-server
 COPY joom-client ./joom-client
 
+# 🔥 [추가] 5단계: Vite 클라이언트 빌드 진행
+# 이 과정을 거쳐야 joom-client/dist 폴더에 최종 자바스크립트 파일이 생성됩니다.
+RUN cd joom-client && npm run build
+
 EXPOSE 3000 10000-20000/udp 10000-20000/tcp
 
 # 실행 명령어 (sfu-server.js가 루트에 바로 복사되므로 파일명만 지정)

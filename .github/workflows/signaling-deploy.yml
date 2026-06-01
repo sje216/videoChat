@@ -78,9 +78,9 @@ jobs:
             docker run -d --name joom-signaling-8080 \
             --network host \
             --restart always \
+            -e SERVER_PORT=8080 \
             -e SPRING_DATA_REDIS_HOST=127.0.0.1 \
             -e SPRING_DATA_REDIS_PORT=6379 \
             -e SPRING_DATA_REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest \
-            --server.port=3000
+            ${{ secrets.DOCKERHUB_USERNAME }}/signaling-server:latest
             

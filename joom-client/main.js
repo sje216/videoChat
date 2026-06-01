@@ -1,4 +1,4 @@
-import * as mediasoupClient from "mediasoup-client";
+import { Device } from 'mediasoup-client';
 import UIManager from "./ui/UIManager";
 import SocketManager from "./core/SocketManager";
 import ApiService from "./service/ApiService";

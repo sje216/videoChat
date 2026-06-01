@@ -45,7 +45,7 @@ jobs:
               --network host \
               --restart always \
               -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-              -e ANNOUNCED_IP="${{ secrets.EC2_SFU_HOST }}" \
+              -e ANNOUNCED_IP="joom-signaling.duckdns.org" \
               -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
               -e SFU_URL="${{ secrets.EC2_SFU_HOST }}:3000"  \
               -e REDIS_PORT="6379" \
