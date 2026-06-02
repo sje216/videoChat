@@ -28,7 +28,7 @@ jobs:
       # 🛠️ 기준점을 최상위 루트로 잡고 도면 파일의 상대 경로를 지정하는 정석 명령어입니다.
       - name: Build and Push Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest -f sfu-server/Dockerfile .
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest -f sfu-server/Dockerfile .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
 
       - name: Deploy to EC2
