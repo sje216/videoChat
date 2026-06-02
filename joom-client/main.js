@@ -50,13 +50,20 @@ async function startAndjoin() {
 
   try{
     const res = await apiService.getRoomAccess(roomId, userId);
-    const {sfuUrl, ticket } = res;
     console.log("API 응답 : ", res);
+    const {sfuUrl, ticket } = res;
     console.log(`할당된 SFU 주소: ${sfuUrl}`);
 
     // 관리/채팅 소켓
-    const springUrl = `wss://joom-signaling.duckdns.org/ws?roomId=${roomId}&userId=${userId}`;
-    await springSocket.connect(springUrl);
+    // ⭕ main.js 내의 startAndjoin() 또는 소켓 connect 호출부 수정
+    const isSecure = window.location.protocol === 'https:';
+    const wsProtocol = isSecure ? 'wss://' : 'ws://';
+    // 현재 호스트 이름(joom-signaling.duckdns.org)을 그대로 따오도록 설정
+    const host = window.location.host; 
+    // 스프링 부트 시그널링 소켓 연결 주소 조립
+    const springWsUrl = `${wsProtocol}${host}/ws?roomId=${roomId}&userId=${userId}`;
+    console.log("🔗 시그널링 소켓 연결 시도:", springWsUrl);
+    await springSocket.connect(springWsUrl);
     console.log("springSocket 연결 성공!");
     springSocket.send("JOIN", {roomId: roomId, from: userId});
     // 미디어 소켓
