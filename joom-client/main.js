@@ -54,7 +54,7 @@ async function startAndjoin() {
     console.log(`할당된 SFU 주소: ${sfuUrl}`);
 
     // 관리/채팅 소켓
-    const springUrl = `ws://joom-signaling.duckdns.org/ws?roomId=${roomId}&userId=${userId}`;
+    const springUrl = `wss://joom-signaling.duckdns.org/ws?roomId=${roomId}&userId=${userId}`;
     await springSocket.connect(springUrl);
     console.log("springSocket 연결 성공!");
     springSocket.send("JOIN", {roomId: roomId, from: userId});
