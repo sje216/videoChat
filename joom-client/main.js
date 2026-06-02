@@ -51,6 +51,7 @@ async function startAndjoin() {
   try{
     const res = await apiService.getRoomAccess(roomId, userId);
     const {sfuUrl, ticket } = res;
+    console.log("API 응답 : ", res);
     console.log(`할당된 SFU 주소: ${sfuUrl}`);
 
     // 관리/채팅 소켓

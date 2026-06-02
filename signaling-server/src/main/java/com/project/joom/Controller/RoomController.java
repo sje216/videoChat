@@ -22,7 +22,7 @@ public class RoomController {
     public ResponseEntity<?> getAccessTicket(@PathVariable("roomId") String roomId, @RequestBody Map<String, String> req) {
         String sfuUrl           = roomService.getSfuUrlForRoom(roomId);
         if(sfuUrl == null ){
-            sfuUrl = "ws://localhost:3000";
+            sfuUrl = "wss://joom-signaling.duckdns.org/sfu";
         }
         String userId = req.get("userId");
         ticketRepository.saveTicket(roomId, userId);
