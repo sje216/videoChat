@@ -57,9 +57,12 @@ async function startAndjoin() {
     // 관리/채팅 소켓
     // ⭕ main.js 내의 startAndjoin() 또는 소켓 connect 호출부 수정
     const isSecure = window.location.protocol === 'https:';
+    console.log("현재 프로토콜:", window.location.protocol);
     const wsProtocol = isSecure ? 'wss://' : 'ws://';
+    console.log("사용할 WebSocket 프로토콜:", wsProtocol);
     // 현재 호스트 이름(joom-signaling.duckdns.org)을 그대로 따오도록 설정
     const host = window.location.host; 
+    console.log("현재 호스트:", host);
     // 스프링 부트 시그널링 소켓 연결 주소 조립
     const springWsUrl = `${wsProtocol}${host}/ws?roomId=${roomId}&userId=${userId}`;
     console.log("🔗 시그널링 소켓 연결 시도:", springWsUrl);
@@ -68,6 +71,7 @@ async function startAndjoin() {
     springSocket.send("JOIN", {roomId: roomId, from: userId});
     // 미디어 소켓
     const finalsfuUrl = `${sfuUrl}?roomId=${roomId}&userId=${userId}&token=${ticket}`;
+    console.log("🔗 SFU 소켓 연결 시도:", finalsfuUrl);
     await sfuSocket.connect(finalsfuUrl);
     console.log("springSocket 연결 성공 후 실행되는 로직!");
     sfuSocket.send("joinRoom", {roomId: roomId, userId: userId});
