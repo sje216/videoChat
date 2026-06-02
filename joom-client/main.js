@@ -57,15 +57,13 @@ async function startAndjoin() {
     // 관리/채팅 소켓
     // ⭕ main.js 내의 startAndjoin() 또는 소켓 connect 호출부 수정
     const isSecure = window.location.protocol === 'https:';
-    console.log("현재 프로토콜:", window.location.protocol);
     const wsProtocol = isSecure ? 'wss://' : 'ws://';
-    console.log("사용할 WebSocket 프로토콜:", wsProtocol);
-    // 현재 호스트 이름(joom-signaling.duckdns.org)을 그대로 따오도록 설정
     const host = window.location.host; 
-    console.log("현재 호스트:", host);
-    // 스프링 부트 시그널링 소켓 연결 주소 조립
+
+    // 확실하게 wss://joom-signaling.duckdns.org/ws... 구조가 나오도록 세팅
     const springWsUrl = `${wsProtocol}${host}/ws?roomId=${roomId}&userId=${userId}`;
-    console.log("🔗 시그널링 소켓 연결 시도:", springWsUrl);
+    console.log("🔗 시그널링 주소 검증:", springWsUrl);
+
     await springSocket.connect(springWsUrl);
     console.log("springSocket 연결 성공!");
     springSocket.send("JOIN", {roomId: roomId, from: userId});
