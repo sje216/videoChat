@@ -22,6 +22,7 @@ export default class SocketManager {
      * springSocket 연결
     */
     connect(url){
+        console.log(`🔌 [${this.name}] 연결 시도: ${url}`);
         this.url = url;
         // 중복 연결 방지
         if(this.socket){
