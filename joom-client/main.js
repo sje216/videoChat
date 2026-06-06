@@ -49,6 +49,7 @@ async function startAndjoin() {
   currentUserId = userId;
 
   try{
+    console.log("방 입장 시도 : ", {roomId, userId});
     const res = await apiService.getRoomAccess(roomId, userId);
     console.log("API 응답 : ", res);
     const {sfuUrl, ticket } = res;
