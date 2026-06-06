@@ -34,8 +34,6 @@ export async function initMediasoup(){
             logLevel: "warn",
         });
 
-        console.log(`[SFU] 워커 생성됨 (PID: ${worker.pid})`);
-
         worker.on("died", () => {
             console.error(`[SFU] mediasoup Worker(PID: ${worker.pid})가 비정상 종료되었습니다.`);
             // 지표에 반영 0으로 설정해 대시보드에서 하락 감지
