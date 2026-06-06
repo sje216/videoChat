@@ -42,7 +42,9 @@ jobs:
             docker rm joom-sfu || true
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/joom-sfu:latest
             docker run -d --name joom-sfu \
-              --network host \
+              -p 3000:3000 \
+              -p 40000-49999:40000-49999/udp \
+              -p 40000-49999:40000-49999/tcp \
               --restart always \
               -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
               -e ANNOUNCED_IP="joom-signaling.duckdns.org" \
