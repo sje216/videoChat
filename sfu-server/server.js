@@ -252,7 +252,7 @@ async function handleMsg(ws, msg) {
                     // listenIps: [{ ip: "127.0.0.1", announcedIp: null}],
                     listenIps: [{ 
                         ip: "0.0.0.0", 
-                        announcedIp: process.env.ANNOUNCED_IP || null // 👈 GitHub Actions에서 넘겨준 도메인
+                        announcedIp: process.env.ANNOUNCED_IP || 127.0.0.1 // 👈 GitHub Actions에서 넘겨준 도메인
                     }],
                     enableUdp: true,
                     enableTcp: true,

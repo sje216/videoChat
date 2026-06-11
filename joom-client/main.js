@@ -242,6 +242,15 @@ let transportCount = 0;
 async function createTransport(data) {
   transportCount++;
 
+  data.iceServers = [
+    { urls: `stun:${process.env.ANNOUNCED_IP || "127.0.0.1"}:3478` },
+    {
+      urls: `turn:${process.env.ANNOUNCED_IP || "127.0.0.1"}:3478`,
+      username: "joomuser",
+      credential: "joompw"
+    }
+  ];
+
   if (transportCount === 1) {
     // 1. 송신용 트랜스포트
     mediasoupHandler.setupSendTransport(data, (callback) => {
