@@ -13,7 +13,7 @@ WebRTC와 SFU 아키텍처를 기반으로
 ---
 
 ## 🔗 Demo
-- URL: (배포 후 추가)
+- URL: (https://joom-signaling.duckdns.org/)
 
 ---
 
