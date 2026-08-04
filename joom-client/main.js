@@ -79,7 +79,6 @@ async function startAndjoin() {
   }
 
   startHeartbeat();
-
 }
 
 // springSocket의 이벤트 리스너
