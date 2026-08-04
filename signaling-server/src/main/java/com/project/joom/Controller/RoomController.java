@@ -27,7 +27,6 @@ public class RoomController {
         String userId = req.get("userId");
         ticketRepository.saveTicket(roomId, userId);
 
-
         return ResponseEntity.ok(Map.of(
                 "sfuUrl", sfuUrl,
                 "ticket", "generated_ticket",
