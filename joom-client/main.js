@@ -63,7 +63,7 @@ async function startAndjoin() {
 
     // 확실하게 wss://joom-signaling.duckdns.org/ws... 구조가 나오도록 세팅
     const springWsUrl = `${wsProtocol}${host}/ws?roomId=${roomId}&userId=${userId}`;
-    //console.log("🔗 시그널링 주소 검증:", springWsUrl);
+    console.log("🔗 시그널링 주소 검증:", springWsUrl);
 
     await springSocket.connect(springWsUrl);
     console.log("springSocket 연결 성공!");
